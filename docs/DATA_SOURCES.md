@@ -1,0 +1,123 @@
+# CoolRoute Tokyo 数据源登记表
+
+本文件是数据源的人类可读说明；前端代码使用 `src/config/dataSources.js` 中的 Registry。两者必须保持一致。
+
+M1 建立来源、目录和 Loader 契约；M2 已获取真实 OpenStreetMap 步行道路图；M4 已完成真实官方绿色覆盖与饮水点的 Edge Enrichment。`pending` 表示等待后续里程碑，不表示获取失败。
+
+## 概览
+
+| 数据 | 发布机构 | 优先级 | 当前状态 | Raw Path |
+|---|---|---:|---|---|
+| OpenStreetMap Walking Network | OpenStreetMap contributors | P0 | `ready` | `data/raw/osm/` |
+| 緑のオープンデータ（GISデータ） | 东京都都市整备局 | P0 | `ready` | `data/raw/green/` |
+| Tokyowater Drinking Station | 东京都水道局 | P1 | `ready` | `data/raw/drinking_station/` |
+| Tokyo Street Trees | 东京都建设局 | P2 | `not_started` | `data/raw/trees/` |
+| Project PLATEAU 3D Buildings | 国土交通省 | P2 | `not_started` | `data/raw/plateau/` |
+| JMA Weather Data | 日本气象厅 | P2 | `not_started` | `data/raw/weather/` |
+
+## 1. OpenStreetMap Walking Network
+
+- **发布机构：** OpenStreetMap contributors / OpenStreetMap Foundation
+- **官方来源：** <https://www.openstreetmap.org/>
+- **用途：** 建立 pedestrian / walking road network
+- **获取方式：** M2 使用 OSMnx 2.1.1，按 `config/demo_area.json` 的 `boundingBox` 获取 `network_type="walk"` 的网络；默认读取缓存，`--force-download` 才重新请求，并在覆盖稳定缓存路径前将旧 Raw 快照移入 `data/raw/osm/archive/`
+- **文件格式：** 真实缓存为 GraphML，来源 sidecar 为 JSON，浏览器 Graph 为 JSON
+- **License：** ODbL，必须显示 attribution；详见 <https://www.openstreetmap.org/copyright>
+- **获取时间：** 2026-08-17T13:53:11.945094Z
+- **空间覆盖：** 请求边界 `[139.744, 35.672, 139.771, 35.694]`；实际 Node 范围 `[139.7440015, 35.672002, 139.7709959, 35.6939986]`，EPSG:4326
+- **时间覆盖：** 获取时由 OSM/Overpass 提供的当前快照；各要素更新时间不同
+- **本地位置：** Raw `data/raw/osm/osm_walking.graphml` 和 `osm_walking.metadata.json`；Browser `public/data/graph.json`
+- **处理方法：** OSMnx `graph_from_bbox`，`network_type="walk"`、`simplify=True`、`retain_all=False`；保留每条 MultiDiGraph 有向/平行 Edge，geometry 转为 `[lon, lat]`
+- **浏览器 Graph：** M4 后 Schema Version `1.1.0`；5,350 个 Node、16,046 条 Edge；M4 仅增加环境字段，M2 topology、MultiEdge、length 和 geometry 不变
+- **当前状态：** `ready`，M2 真实 GraphML 与 M4 production `graph.json` 均验证通过
+- **已知限制：** 只覆盖 Demo 边界，不代表整个东京；OSM 完整性和通行标签依赖社区贡献；Schema Version 不是 OSM 数据版本。
+
+### M1 开发底图
+
+M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式底图显示。底图可见不代表步行图数据已就绪。应用必须遵守 <https://operations.osmfoundation.org/policies/tiles/>，不预取、批量下载或隐藏 attribution。
+
+## 2. 緑のオープンデータ（GISデータ）
+
+- **发布机构：** 东京都都市整备局 都市づくり政策部緑地景観課
+- **官方来源：** <https://catalog.data.metro.tokyo.lg.jp/dataset/t000008d2000000024>；[官方定义书](https://data.storage.data.metro.tokyo.lg.jp/toshiseibi/green_teigisho.pdf)；[文件清单](https://data.storage.data.metro.tokyo.lg.jp/toshiseibi/green_filelist.pdf)
+- **用途：** `green_score`，即“道路 15m Buffer 内由官方实际绿色覆盖 Polygon 估算的绿色覆盖比例代理值”
+- **获取时间：** 2026-08-18；Raw SHA-256 见各目录 metadata 与 `public/data/environment_metadata.json`
+- **格式 / CRS：** ESRI Shapefile ZIP，CP932，EPSG:6677；局部白名单缓存为 GeoPackage
+- **License：** M4 使用的具体资源页面标注 CC BY；使用时保留发布机构与来源
+- **空间 / 时间覆盖：** 官方东京 GIS 数据；本项目只读取当前 Demo Road Graph 周边。官方调查/制作时点以该数据集说明为准，不解释成实时植被
+- **处理方法：** Raw 不修改；先查官方定义和真实 Schema，再按语义白名单局部读取；修复 7 个局部无效公共设施几何；用 100m 无损空间分片加速；每条 Edge 使用 EPSG:6677 的 15m Buffer；相交片段 union 后计算面积比例，避免重叠重复计数
+- **当前状态：** `ready`
+
+### Green Polygon 语义白名单
+
+| 官方名称 | 官方定义摘要 | 纳入 | 理由 |
+|---|---|---:|---|
+| 樹林地 | 300㎡以上的一团树林 | 是 | 明确表示实际成片树林 |
+| 崖線の樹林地 | 在“樹林地”范围和崖线范围内确认的树林 | 是 | 明确表示实际树林；union 消除与樹林地重复 |
+| 自治体管理の樹林地 | 非公园等范围、由自治体管理的树林 | 是 | 明确表示实际树林；Demo 相交数为 0 也透明记录 |
+| 公共施設の緑 | 公共设施区域内以航空照片为基础提取制作的绿色覆盖 | 是 | 明确表示影像提取的实际绿色覆盖 Polygon |
+| 公園・緑地等、自然公園 | 公园、庭园、自然公园等区域 | 否 | 区域边界不等于实际绿色覆盖 |
+| 法规、规划或条例指定的绿地区域 | 法规/规划指定区域 | 否 | 指定范围不等于实际绿色覆盖 |
+| 水系 | 河川、运河、水道、湖沼等 | 否 | 水体不是当前实际绿色覆盖 Polygon |
+| 街路樹 | Point / Line 街路树 | 否 | 不混入 Polygon 覆盖比例 |
+
+`green_score` 不是 Shade Score、树冠遮阴比例、实际道路温度或医疗热风险。当前白名单不是官方数据集中所有“绿相关”图层的合并，也不声称穷尽东京全部植被。
+
+## 3. Tokyowater Drinking Station
+
+- **发布机构：** 东京都水道局
+- **官方来源：** <https://catalog.data.metro.tokyo.lg.jp/dataset/t000019d0000000003>
+- **用途：** Edge Geometry 到最近官方 Drinking Station Point 的距离，以及离散 `water_penalty`
+- **获取方式：** 官方 CSV `tokyowaterdrinkingstation_250917.csv`，默认缓存，强制下载失败不会破坏已有 Raw
+- **文件格式：** CSV，CP932；801 行坐标全部有效
+- **License：** CC BY
+- **本地位置：** Raw `data/raw/drinking_station/`；Processed `data/processed/drinking_station/`；Browser `public/data/drinking_stations.geojson`
+- **处理方法：** 全部 801 个有效官方点参与最近距离计算；`<=100m → 0`、`<=300m → 0.3`、`<=500m → 0.6`、`>500m → 1`；浏览器 GeoJSON 只发布 Demo 内 5 个点
+- **当前状态：** `ready`
+- **已知限制：** `water_penalty` 不是饮水点数量。“路线附近 N 个点”必须在后续按 Route Geometry 与独立 configurable buffer 计算，不能由 penalty 反推，也不能表述为路线实际经过。
+
+## 4. Tokyo Street Trees
+
+- **发布机构：** 东京都建设局
+- **官方来源：** <https://catalog.data.metro.tokyo.lg.jp/dataset/t000014d2000000029>
+- **用途：** 未来 `tree_score` 候选输入
+- **获取方式：** M1 不下载
+- **文件格式：** CSV
+- **License：** CC BY
+- **本地位置：** Raw `data/raw/trees/`；Processed `data/processed/environment/`
+- **处理方法：** 尚未实施
+- **当前状态：** `not_started`，P2
+- **已知限制：** 使用前必须验证 CSV 是否包含可用空间位置和 Demo 覆盖；统计数量不能代替树木地理点。
+
+## 5. Project PLATEAU 3D Buildings
+
+- **发布机构：** 国土交通省
+- **官方来源：** <https://www.mlit.go.jp/plateau/>
+- **用途：** 未来 building footprint、building height、solar position、shadow polygon 和 `shade_score`
+- **获取方式：** M1 只登记，不下载
+- **文件格式 / License：** 尚未针对具体东京资源核验
+- **本地位置：** Raw `data/raw/plateau/`；Processed `data/processed/environment/`
+- **处理方法：** 尚未实施
+- **当前状态：** `not_started`，P2
+- **已知限制：** 禁止下载整个东京 PLATEAU 数据。
+
+## 6. JMA Weather Data
+
+- **发布机构：** 日本气象厅
+- **官方来源：** <https://www.jma.go.jp/jma/index.html>
+- **用途：** 未来只作为 Environment Multiplier
+- **获取方式：** M1 只登记官方入口，不假设具体 API
+- **文件格式 / License：** 尚未核验
+- **本地位置：** Raw `data/raw/weather/`；Processed `data/processed/environment/`
+- **处理方法：** 尚未实施
+- **当前状态：** `not_started`，P2
+- **已知限制：** 天气数据不得被描述为某条道路的真实气温。
+
+## 数据获取失败时的统一行为
+
+```text
+官方数据源 -> 尝试获取 -> 失败时明确报告
+                 -> 保留 Loader -> 要求人工提供官方文件
+```
+
+禁止生成假数据、将 `synthetic` 数据说成真实数据、悄悄切换到 Kaggle/第三方博客/无法验证的 GitHub 数据，或为了让程序成功而硬编码看似合理的数值。
