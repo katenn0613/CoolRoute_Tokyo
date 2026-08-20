@@ -2,11 +2,25 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../../src/App.jsx'
 
-vi.mock('../../src/components/MapView.jsx', () => ({ MapView: () => null }))
+const mapViewMock = vi.hoisted(() => ({ props: null }))
+vi.mock('../../src/components/MapView.jsx', () => ({
+  MapView: (props) => { mapViewMock.props = props; return null },
+}))
 
 const routingHook = vi.hoisted(() => ({ state: {} }))
 vi.mock('../../src/routing/useRouteBundle.js', () => ({
   useRouteBundle: () => routingHook.state,
+}))
+
+const shadeHook = vi.hoisted(() => ({ args: null }))
+vi.mock('../../src/shade/useShadeLayer.js', () => ({
+  useShadeLayer: (args) => {
+    shadeHook.args = args
+    return {
+      status: 'ready', error: null, scenario: '12:00',
+      setScenario: vi.fn(), geoJSON: { type: 'FeatureCollection', features: [] },
+    }
+  },
 }))
 
 function metrics(distance = 1000, exposure = 0.6) {
@@ -63,6 +77,18 @@ function readyState(overrides = {}) {
 
 describe('M6 日语正式产品页面', () => {
   beforeEach(() => { routingHook.state = routingState() })
+
+  it('将 Road Graph 交给独立 Shade Hook 并传入地图，不改变路线状态', () => {
+    const roadGraph = { metadata: { graphVersion: '1.1.0' }, edges: new Map() }
+    routingHook.state = routingState({ roadGraph })
+
+    render(<App />)
+
+    expect(shadeHook.args.graph).toBe(roadGraph)
+    expect(mapViewMock.props.shadeStatus).toBe('ready')
+    expect(mapViewMock.props.shadeScenario).toBe('12:00')
+    expect(routingHook.state.recalculate).not.toHaveBeenCalled()
+  })
 
   it('首屏用日语解释产品并引导选择出发地', () => {
     render(<App />)

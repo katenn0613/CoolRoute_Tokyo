@@ -8,6 +8,7 @@ import {
   exposureLayerPresentation,
   getRouteSampleStyle,
   routePresentation,
+  shadeLayerPresentation,
 } from '../config/presentationConfig.js'
 import { assetPath } from '../utils/assetPath.js'
 import { MapLayerControls } from './MapLayerControls.jsx'
@@ -43,6 +44,10 @@ export function MapView({
   onMapClick = () => {},
   routes = null,
   selectedMode = 'balanced',
+  shadeGeoJSON = null,
+  shadeScenario = '12:00',
+  shadeStatus = 'idle',
+  onShadeScenarioChange = () => {},
   start = null,
 }) {
   const containerRef = useRef(null)
@@ -54,16 +59,19 @@ export function MapView({
   const routesRef = useRef(routes)
   const selectedModeRef = useRef(selectedMode)
   const exposureRef = useRef(exposureGeoJSON)
+  const shadeRef = useRef(shadeGeoJSON)
   const [status, setStatus] = useState('loading')
   const [mapReady, setMapReady] = useState(false)
   const [heatVisible, setHeatVisible] = useState(false)
   const [drinkingVisible, setDrinkingVisible] = useState(false)
+  const [shadeVisible, setShadeVisible] = useState(false)
 
   onMapClickRef.current = onMapClick
   interactionEnabledRef.current = interactionEnabled
   routesRef.current = routes
   selectedModeRef.current = selectedMode
   exposureRef.current = exposureGeoJSON
+  shadeRef.current = shadeGeoJSON
 
   useEffect(() => {
     setWorkerUrl(workerUrl)
@@ -95,6 +103,25 @@ export function MapView({
             0, exposureLayerPresentation.lowColor,
             0.7, exposureLayerPresentation.middleColor,
             1, exposureLayerPresentation.highColor,
+          ],
+        },
+      })
+      map.addSource('building-shade', {
+        type: 'geojson',
+        data: shadeRef.current ?? emptyGeoJSON,
+      })
+      map.addLayer({
+        id: 'building-shade-line',
+        type: 'line',
+        source: 'building-shade',
+        layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': shadeLayerPresentation.color,
+          'line-width': shadeLayerPresentation.width,
+          'line-opacity': [
+            'interpolate', ['linear'], ['get', 'shadeScore'],
+            0, shadeLayerPresentation.minimumOpacity,
+            1, shadeLayerPresentation.maximumOpacity,
           ],
         },
       })
@@ -204,10 +231,24 @@ export function MapView({
 
   useEffect(() => {
     if (!mapReady) return
+    mapRef.current?.getSource('building-shade')?.setData(shadeGeoJSON ?? emptyGeoJSON)
+  }, [mapReady, shadeGeoJSON])
+
+  useEffect(() => {
+    if (!mapReady) return
     mapRef.current?.setLayoutProperty(
       'heat-exposure-line', 'visibility', heatVisible ? 'visible' : 'none',
     )
   }, [heatVisible, mapReady])
+
+  useEffect(() => {
+    if (!mapReady) return
+    mapRef.current?.setLayoutProperty(
+      'building-shade-line',
+      'visibility',
+      shadeVisible && shadeStatus === 'ready' ? 'visible' : 'none',
+    )
+  }, [mapReady, shadeStatus, shadeVisible])
 
   useEffect(() => {
     if (!mapReady) return
@@ -232,6 +273,11 @@ export function MapView({
         heatVisible={heatVisible}
         onDrinkingChange={setDrinkingVisible}
         onHeatChange={setHeatVisible}
+        onShadeChange={setShadeVisible}
+        onShadeScenarioChange={onShadeScenarioChange}
+        shadeScenario={shadeScenario}
+        shadeStatus={shadeStatus}
+        shadeVisible={shadeVisible}
       />
       <div className="map-legend" aria-label="ルート凡例">
         {routeModes.map((mode) => (
@@ -245,6 +291,9 @@ export function MapView({
         ))}
         {heatVisible && (
           <span className="heat-legend"><b>低い</b><i /><b>高い</b></span>
+        )}
+        {shadeVisible && shadeStatus === 'ready' && (
+          <span><i className="shade-legend-line" />推定日陰 {shadeScenario}</span>
         )}
       </div>
       <div className="map-area-caption">

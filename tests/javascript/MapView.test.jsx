@@ -76,6 +76,7 @@ describe('M6 MapView', () => {
 
     expect(maplibre.addLayer.mock.calls.map(([layer]) => layer.id)).toEqual([
       'heat-exposure-line',
+      'building-shade-line',
       'drinking-stations-points',
       'route-fastest-line',
       'route-balanced-line',
@@ -84,14 +85,14 @@ describe('M6 MapView', () => {
     ])
     expect(maplibre.addLayer.mock.calls[0][0].layout.visibility).toBe('none')
     expect(maplibre.addLayer.mock.calls[1][0].layout.visibility).toBe('none')
-    expect(maplibre.addLayer.mock.calls[5][0].paint['line-width']).toBeGreaterThan(
-      maplibre.addLayer.mock.calls[4][0].paint['line-width'],
+    expect(maplibre.addLayer.mock.calls[6][0].paint['line-width']).toBeGreaterThan(
+      maplibre.addLayer.mock.calls[5][0].paint['line-width'],
     )
-    expect(maplibre.addLayer.mock.calls[5][0].paint['line-opacity'])
+    expect(maplibre.addLayer.mock.calls[6][0].paint['line-opacity'])
       .toBe(routePresentation.balanced.selectedOpacity)
-    expect(maplibre.addLayer.mock.calls[2][0].paint).not.toHaveProperty('line-dasharray')
-    expect(maplibre.addLayer.mock.calls[3][0].paint['line-dasharray'])
-      .not.toEqual(maplibre.addLayer.mock.calls[4][0].paint['line-dasharray'])
+    expect(maplibre.addLayer.mock.calls[3][0].paint).not.toHaveProperty('line-dasharray')
+    expect(maplibre.addLayer.mock.calls[4][0].paint['line-dasharray'])
+      .not.toEqual(maplibre.addLayer.mock.calls[5][0].paint['line-dasharray'])
   })
 
   it('更新三条真实路线，并让当前选择控制最高层而不修改 geometry', () => {
@@ -111,17 +112,39 @@ describe('M6 MapView', () => {
   })
 
   it('Heat 和 Drinking 图层默认关闭并可由日语控件打开', () => {
-    render(<MapView />)
+    const onShadeScenarioChange = vi.fn()
+    render(
+      <MapView
+        onShadeScenarioChange={onShadeScenarioChange}
+        shadeScenario="12:00"
+        shadeStatus="ready"
+      />,
+    )
     act(() => maplibre.handlers.load())
 
     expect(screen.getByLabelText('暑さ曝露レイヤー')).not.toBeChecked()
+    expect(screen.getByLabelText('建物による推定日陰')).not.toBeChecked()
     expect(screen.getByLabelText('給水スポット')).not.toBeChecked()
     fireEvent.click(screen.getByLabelText('暑さ曝露レイヤー'))
+    fireEvent.click(screen.getByLabelText('建物による推定日陰'))
     fireEvent.click(screen.getByLabelText('給水スポット'))
+    fireEvent.change(screen.getByLabelText('日陰条件'), { target: { value: '15:00' } })
     expect(maplibre.setLayoutProperty).toHaveBeenCalledWith('heat-exposure-line', 'visibility', 'visible')
+    expect(maplibre.setLayoutProperty).toHaveBeenCalledWith('building-shade-line', 'visibility', 'visible')
     expect(maplibre.setLayoutProperty).toHaveBeenCalledWith('drinking-stations-points', 'visibility', 'visible')
+    expect(onShadeScenarioChange).toHaveBeenCalledWith('15:00')
     expect(screen.getByText('低い')).toBeInTheDocument()
     expect(screen.getByText('高い')).toBeInTheDocument()
+  })
+
+  it('Shade 加载失败时禁用控件但不隐藏现有地图状态', () => {
+    render(<MapView shadeStatus="error" />)
+    act(() => maplibre.handlers.load())
+
+    expect(screen.getByLabelText('建物による推定日陰')).toBeDisabled()
+    expect(screen.getByLabelText('日陰条件')).toBeDisabled()
+    expect(screen.getByText('日陰データを利用できません')).toBeInTheDocument()
+    expect(screen.getByText('地図を操作できます')).toBeInTheDocument()
   })
 
   it('保留地图点击、日语状态和 Marker DOM Overlay', () => {

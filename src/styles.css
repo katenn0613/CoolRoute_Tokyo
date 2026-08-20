@@ -152,11 +152,14 @@ h3 { margin-bottom: 0; font-size: 0.95rem; }
 .map-layer-controls strong { color: #31533e; }
 .map-layer-controls label { display: flex; align-items: center; min-height: 36px; gap: 7px; cursor: pointer; }
 .map-layer-controls input { accent-color: #176b43; }
+.map-layer-controls select { min-width: 72px; border: 1px solid #b8c8bd; border-radius: 7px; background: #fff; color: #183c2a; font: inherit; }
+.map-layer-controls small { max-width: 150px; color: #a33a31; line-height: 1.35; }
 .map-legend { bottom: 34px; left: 14px; display: flex; flex-wrap: wrap; max-width: calc(100% - 28px); padding: 9px 11px; gap: 8px 13px; border-radius: 12px; font-size: .63rem; }
 .map-legend > span { display: flex; align-items: center; gap: 5px; }
 .legend-line { display: block; flex: 0 0 auto; border-radius: 999px; }
 .heat-legend i { width: 42px; height: 6px; border-radius: 6px; background: linear-gradient(90deg,#2a9d8f,#f4a261,#c44536); }
 .heat-legend b { font-size: .58rem; }
+.shade-legend-line { width: 28px; height: 5px; border-radius: 5px; background: #334e5c; opacity: .58; }
 .map-area-caption { right: 14px; bottom: 34px; display: grid; max-width: min(300px, calc(100% - 28px)); padding: 10px 12px; gap: 2px; border-radius: 12px; }
 .map-area-caption span { color: #688071; font-size: .59rem; font-weight: 800; }
 .map-area-caption strong { font-size: .72rem; overflow-wrap: anywhere; }

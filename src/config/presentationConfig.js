@@ -60,3 +60,10 @@ export const exposureLayerPresentation = Object.freeze({
   middleColor: '#f4a261',
   highColor: '#c44536',
 })
+
+export const shadeLayerPresentation = Object.freeze({
+  color: '#334e5c',
+  width: 5,
+  minimumOpacity: 0.08,
+  maximumOpacity: 0.58,
+})
