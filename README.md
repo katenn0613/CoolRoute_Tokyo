@@ -2,7 +2,7 @@
 
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
-> **项目状态：** M6 日语优先 Demo UI 的实现、自动测试和正式构建已完成：三条路线默认同时显示，Balanced 默认高亮，Desktop 使用窄侧栏 + 主地图，Mobile 使用地图 + 可折叠 Bottom Sheet。Heat Exposure 与 Drinking Station 图层默认关闭。Browser Graph 仍为 M4 Schema `1.1.0`，路线计算继续完全在浏览器端运行，没有引入后端。当前执行环境没有可连接浏览器，1440×900、390×844 和 320 px 的真实渲染视觉验收仍待执行；CSS 断点与触控尺寸已完成静态审查。
+> **项目状态：** M0–M7 已完成。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model，以及 90 组确定性分层 OD 路线评价。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。M8 Production Deployment 尚未开始。
 
 ## 架构概览
 
@@ -39,6 +39,14 @@ python3 -m venv .venv
 npm run benchmark:routing
 ```
 
+使用正式 Road Graph 和浏览器 Routing 模块重新生成 M7 路线评价：
+
+```bash
+npm run evaluate:routes
+```
+
+该命令固定使用 Random Seed `20260821`，并覆盖写入 `evaluation/` 下的正式 JSON 结果和 `docs/EVALUATION_SUMMARY_JA.md`。评价不会修改 Routing Algorithm、Exposure Formula、Weight、Lambda 或 Production Graph。
+
 `npm run preview` 仅用于在本机检查静态构建结果，不是正式应用依赖的线上后端。
 
 离线重新生成 OSM Graph：
@@ -63,10 +71,12 @@ npm run benchmark:routing
 │   ├── processed/       # 开发阶段生成的 GIS 结果
 │   └── raw/             # 带来源记录的本地原始输入
 ├── docs/                 # 设计和辅助文档
+├── evaluation/           # M7 逐 OD 评价结果与聚合统计
 ├── public/
 │   └── data/            # 浏览器可读的静态运行时资源（含 graph.json）
 ├── scripts/              # 离线 OSM/GIS 预处理与验证
-│   └── data_sources/     # 数据 Source Layer
+│   ├── data_sources/     # 数据 Source Layer
+│   └── evaluation/       # M7 确定性抽样、统计、验证与发布模块
 ├── src/
 │   ├── components/      # React 展示和交互组件
 │   ├── config/          # Demo 区域、地图样式与数据源 Registry
@@ -137,3 +147,29 @@ Heat Exposure Score 是单位距离上的平均模型环境强度；Modelled Exp
 M6 将技术 Demo 重构为日语优先的 Compare 界面。地图始终保留三条真实 Route Geometry，未选路线降低透明度，当前路线通过独立顶层图层突出显示；切换 Route Card 只切换呈现状态，不会重新执行 Dijkstra。默认及 Reset 后选中 `balanced`。
 
 Heat Exposure Layer 复用 M5 唯一的 Edge Exposure Model，只负责将正式 Edge 转换为 GeoJSON；Drinking Station Layer 读取静态 GeoJSON。两层默认关闭，且位于路线图层下方。正式 UI 将 Average Heat Exposure 显示为 `平均暑さ曝露スコア`，将 Modelled Exposure Load 显示为 `モデル上の累積暑さ曝露`。详细设计见 [M6 规格](docs/superpowers/specs/2026-08-18-m6-japanese-product-ui-design.md)。
+
+## M7 路线评价
+
+M7 建立了直接复用正式 `prepareGraph()` 和 `calculateRouteBundle()` 的离线 Node.js 评价管线。评价固定使用 Random Seed `20260821`，按 Fastest Route Distance 分层抽取 90 组有向 OD：
+
+- 400–1000m：30 组；
+- 1000–2000m：30 组；
+- 2000–3500m：30 组。
+
+样本接纳不读取路线是否重合、Heat Exposure 是否降低或绕路是否有利，因此不是为了展示效果筛选案例。在当前 Demo Area、当前数据与当前模型条件下，Balanced 和 Coolest 同时降低 Average Heat Exposure 与 Modelled Exposure Load 的样本比例分别为 55.6% 和 61.1%；三条路线全部相同的比例为 38.9%。这些结果不能推广为东京全域表现，也不是中暑概率、医疗风险或医学验证后的收益。
+
+正式评价产物：
+
+- [逐 OD 评价结果](evaluation/evaluation_results.json)；
+- [评价汇总](evaluation/evaluation_summary.json)；
+- [日语评价报告](docs/EVALUATION_SUMMARY_JA.md)；
+- [M7 设计规格](docs/superpowers/specs/2026-08-21-m7-route-evaluation-design.md)。
+
+## 后续里程碑
+
+- **M8 — Production Deployment：** GitHub Pages 正式部署、Subpath QA 和 Workflow 加固；
+- **M9 — Weather：** 已取消作为 Production Feature，仅保留为 Future Work；
+- **M10 — Building Shade Prototype：** 仅处理当前 Demo Area，以秋分日 09:00、12:00、15:00 三个离散场景进行离线预计算；
+- **M11 — Tokyo Scale Expansion：** 使用增量区域切片管线扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
+
+M8–M11 不改变当前核心原则：Raw GIS 只用于离线处理，浏览器只读取轻量静态数据，正式应用不依赖线上后端。
