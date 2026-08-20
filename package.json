@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "evaluate:routes": "node scripts/evaluate_routes.mjs",
     "benchmark:routing": "node scripts/benchmark_routing.mjs",
     "find:m5-cases": "node scripts/find_m5_route_cases.mjs"
   },

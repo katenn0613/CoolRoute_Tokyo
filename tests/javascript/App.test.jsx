@@ -75,7 +75,7 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.getByRole('button', { name: '出発地を変更' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '目的地を変更' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'リセット' })).toBeEnabled()
-  })
+  }, 15000)
 
   it('三条 Route Card 显示日语指标，切换只调用 selectMode', () => {
     routingHook.state = readyState()

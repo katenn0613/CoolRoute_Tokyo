@@ -1,0 +1,756 @@
+{
+  "metadata": {
+    "evaluationSchemaVersion": "1.0.0",
+    "graphSchemaVersion": "1.1.0",
+    "graphSha256": "273bfc15b39c55de9e65b9eb98f5a346d3430e608cc8603f99ebb75f6f3bd396",
+    "graphNodeCount": 5350,
+    "graphEdgeCount": 16046,
+    "demoArea": {
+      "id": "temporary_demo_area",
+      "name": "皇居东侧—丸之内—东京站",
+      "boundingBox": [
+        139.744,
+        35.672,
+        139.771,
+        35.694
+      ]
+    },
+    "seed": 20260821,
+    "samplingRules": {
+      "directedOdPairs": true,
+      "maximumAttempts": 100000,
+      "straightDistanceMeters": {
+        "minimum": 350,
+        "maximum": 1800
+      },
+      "maximumFastestToStraightDistanceRatio": 3,
+      "strata": {
+        "short": {
+          "minimumMetersInclusive": 400,
+          "maximumMetersExclusive": 1000,
+          "target": 30
+        },
+        "medium": {
+          "minimumMetersInclusive": 1000,
+          "maximumMetersExclusive": 2000,
+          "target": 30
+        },
+        "long": {
+          "minimumMetersInclusive": 2000,
+          "maximumMetersInclusive": 3500,
+          "target": 30
+        }
+      },
+      "tradeoffBasedFiltering": false
+    },
+    "routingConfig": {
+      "walkingSpeedMetersPerSecond": 1.4,
+      "maximumSnapDistanceMeters": 200,
+      "greenWeight": 0.7,
+      "waterWeight": 0.3,
+      "balancedLambda": 1,
+      "coolestLambda": 3,
+      "maximumExtraDistanceRatio": null
+    },
+    "edgeScoresModified": false,
+    "routingAlgorithmModified": false,
+    "exposureFormulaModified": false
+  },
+  "samples": {
+    "totalCount": 90,
+    "countsByStratum": {
+      "short": 30,
+      "medium": 30,
+      "long": 30
+    },
+    "attempts": 336,
+    "rejectionCounts": {
+      "sameNode": 0,
+      "duplicateDirectedPair": 0,
+      "straightDistanceOutOfRange": 115,
+      "routeCalculationFailed": 0,
+      "fastestDistanceOutOfRange": 0,
+      "routeToStraightDistanceRatioExceeded": 0,
+      "stratumFull": 131
+    }
+  },
+  "routeEquality": {
+    "fastestEqualsBalanced": {
+      "count": 40,
+      "rate": 0.444444444444
+    },
+    "fastestEqualsCoolest": {
+      "count": 35,
+      "rate": 0.388888888889
+    },
+    "balancedEqualsCoolest": {
+      "count": 64,
+      "rate": 0.711111111111
+    },
+    "allThreeEqual": {
+      "count": 35,
+      "rate": 0.388888888889
+    },
+    "notAllThreeEqual": {
+      "count": 55,
+      "rate": 0.611111111111
+    }
+  },
+  "routeMetrics": {
+    "fastest": {
+      "distanceMeters": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 450.495444598916,
+        "mean": 1471.532270644642,
+        "median": 1424.566040326362,
+        "p25": 881.222371622985,
+        "p75": 2099.898350102418,
+        "p90": 2270.944300717554,
+        "max": 2652.969137617626
+      },
+      "walkingTimeSeconds": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 321.782460427797,
+        "mean": 1051.094479031888,
+        "median": 1017.547171661688,
+        "p25": 629.444551159275,
+        "p75": 1499.927392930299,
+        "p90": 1622.10307194111,
+        "max": 1894.977955441162
+      },
+      "averageHeatExposure": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0.582999289482,
+        "mean": 0.816902698473,
+        "median": 0.818085982381,
+        "p25": 0.792499884334,
+        "p75": 0.853459059411,
+        "p90": 0.881262482444,
+        "max": 0.937444387564
+      },
+      "modelledExposureLoad": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 368.463655859278,
+        "mean": 1194.748321960563,
+        "median": 1168.852026572029,
+        "p25": 713.588537154335,
+        "p75": 1728.432648670284,
+        "p90": 1822.131957112455,
+        "max": 2201.446129625153
+      },
+      "greenIndicator": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0,
+        "mean": 0.061207550334,
+        "median": 0.004124839054,
+        "p25": 0.000473762287,
+        "p75": 0.062717828988,
+        "p90": 0.192675845263,
+        "max": 0.488703216666
+      },
+      "waterAccessIndicator": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0,
+        "mean": 0.467506720978,
+        "median": 0.479890194518,
+        "p25": 0.331483118072,
+        "p75": 0.650405782533,
+        "p90": 0.691675538431,
+        "max": 0.79067746263
+      },
+      "edgeCount": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 13,
+        "mean": 43.244444444444,
+        "median": 42.5,
+        "p25": 31.25,
+        "p75": 54,
+        "p90": 64.2,
+        "max": 81
+      }
+    },
+    "balanced": {
+      "distanceMeters": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 450.495444598916,
+        "mean": 1478.26548494298,
+        "median": 1424.566040326362,
+        "p25": 886.464503385567,
+        "p75": 2121.263629912367,
+        "p90": 2275.314542515074,
+        "max": 2670.444821482127
+      },
+      "walkingTimeSeconds": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 321.782460427797,
+        "mean": 1055.903917816414,
+        "median": 1017.547171661688,
+        "p25": 633.188930989691,
+        "p75": 1515.188307080262,
+        "p90": 1625.224673225053,
+        "max": 1907.460586772948
+      },
+      "averageHeatExposure": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0.530981846893,
+        "mean": 0.805389655649,
+        "median": 0.815987624912,
+        "p25": 0.787089255318,
+        "p75": 0.848479905119,
+        "p90": 0.872020320376,
+        "max": 0.937444387564
+      },
+      "modelledExposureLoad": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 368.463655859278,
+        "mean": 1177.675972263896,
+        "median": 1161.309527166924,
+        "p25": 713.313718484373,
+        "p75": 1683.895373696673,
+        "p90": 1808.558682480859,
+        "max": 2106.794910212188
+      },
+      "greenIndicator": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0,
+        "mean": 0.072842412728,
+        "median": 0.00631163609,
+        "p25": 0.00078319481,
+        "p75": 0.078102643316,
+        "p90": 0.233749452581,
+        "max": 0.638042330823
+      },
+      "waterAccessIndicator": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0,
+        "mean": 0.478735518139,
+        "median": 0.48580054223,
+        "p25": 0.35563064754,
+        "p75": 0.653473165044,
+        "p90": 0.692915715956,
+        "max": 0.795670605922
+      },
+      "edgeCount": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 13,
+        "mean": 42.677777777778,
+        "median": 42.5,
+        "p25": 30.25,
+        "p75": 52,
+        "p90": 65,
+        "max": 80
+      }
+    },
+    "coolest": {
+      "distanceMeters": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 453.337756103139,
+        "mean": 1489.509681763028,
+        "median": 1424.566040326362,
+        "p25": 886.464503385567,
+        "p75": 2140.037062509109,
+        "p90": 2322.181731444424,
+        "max": 2687.433373413745
+      },
+      "walkingTimeSeconds": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 323.812682930814,
+        "mean": 1063.935486973591,
+        "median": 1017.547171661688,
+        "p25": 633.188930989691,
+        "p75": 1528.597901792221,
+        "p90": 1658.701236746017,
+        "max": 1919.595266724104
+      },
+      "averageHeatExposure": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0.530981846893,
+        "mean": 0.798135366009,
+        "median": 0.807144127164,
+        "p25": 0.782633450234,
+        "p75": 0.837422394403,
+        "p90": 0.860978570334,
+        "max": 0.937444387564
+      },
+      "modelledExposureLoad": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 366.323172462446,
+        "mean": 1171.446050876865,
+        "median": 1158.695270003712,
+        "p25": 713.313718484373,
+        "p75": 1648.414033783506,
+        "p90": 1807.572009990532,
+        "max": 2093.67516082365
+      },
+      "greenIndicator": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0,
+        "mean": 0.078178888275,
+        "median": 0.008312685556,
+        "p25": 0.00108683158,
+        "p75": 0.101312913876,
+        "p90": 0.242234182955,
+        "max": 0.638042330823
+      },
+      "waterAccessIndicator": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 0,
+        "mean": 0.490464707328,
+        "median": 0.523877379649,
+        "p25": 0.35877735022,
+        "p75": 0.653877904865,
+        "p90": 0.697508801307,
+        "max": 0.795670605922
+      },
+      "edgeCount": {
+        "count": 90,
+        "nullCount": 0,
+        "min": 13,
+        "mean": 43.6,
+        "median": 43.5,
+        "p25": 31,
+        "p75": 53,
+        "p90": 65,
+        "max": 87
+      }
+    }
+  },
+  "comparisons": {
+    "balanced": {
+      "improvements": {
+        "averageExposureReduced": {
+          "count": 50,
+          "rate": 0.555555555556
+        },
+        "loadReduced": {
+          "count": 50,
+          "rate": 0.555555555556
+        },
+        "bothReduced": {
+          "count": 50,
+          "rate": 0.555555555556
+        },
+        "averageReducedLoadIncreased": {
+          "count": 0,
+          "rate": 0
+        },
+        "neitherReduced": {
+          "count": 40,
+          "rate": 0.444444444444
+        }
+      },
+      "distributions": {
+        "extraDistanceMeters": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 6.733214298338,
+          "median": 0.076780759496,
+          "p25": 0,
+          "p75": 3.081814410188,
+          "p90": 12.187072500168,
+          "max": 302.486531654604
+        },
+        "extraDistancePercent": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 0.364165632002,
+          "median": 0.007233144657,
+          "p25": 0,
+          "p75": 0.163803731746,
+          "p90": 0.670289710286,
+          "max": 16.497698249217
+        },
+        "extraWalkingMinutes": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 0.080157313075,
+          "median": 0.000914056661,
+          "p25": 0,
+          "p75": 0.036688266788,
+          "p90": 0.14508419643,
+          "max": 3.601030138745
+        },
+        "averageHeatExposureReduction": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 0.011513042824,
+          "median": 0.000571020971,
+          "p25": 0,
+          "p75": 0.009144372025,
+          "p90": 0.024312173415,
+          "max": 0.368337173884
+        },
+        "averageHeatExposureReductionPercent": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 1.389780664315,
+          "median": 0.071246689876,
+          "p25": 0,
+          "p75": 1.116729720551,
+          "p90": 3.201136318547,
+          "max": 40.957342764278
+        },
+        "modelledExposureLoadReduction": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 17.072349696666,
+          "median": 0.366424893283,
+          "p25": 0,
+          "p75": 13.31240502144,
+          "p90": 36.989209205549,
+          "max": 514.734106747687
+        },
+        "modelledExposureLoadReductionPercent": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 1.108227547293,
+          "median": 0.059549578808,
+          "p25": 0,
+          "p75": 0.978479247002,
+          "p90": 2.60495032688,
+          "max": 31.216663335209
+        },
+        "greenIndicatorChange": {
+          "count": 90,
+          "nullCount": 0,
+          "min": -0.001868192519,
+          "mean": 0.011634862393,
+          "median": 0,
+          "p25": 0,
+          "p75": 0.00104373022,
+          "p90": 0.017297814943,
+          "max": 0.538484395845
+        },
+        "waterAccessIndicatorChange": {
+          "count": 90,
+          "nullCount": 0,
+          "min": -0.100876850982,
+          "mean": 0.011228797161,
+          "median": 0,
+          "p25": 0,
+          "p75": 0.012574575943,
+          "p90": 0.049697823609,
+          "max": 0.183440493099
+        }
+      },
+      "detourThresholds": {
+        "extraDistancePercent": {
+          "le5": {
+            "threshold": 5,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 49,
+            "averageExposureReducedRateWithinEligible": 0.550561797753,
+            "loadReducedCount": 49,
+            "loadReducedRateWithinEligible": 0.550561797753,
+            "bothReducedCount": 49,
+            "bothReducedRateWithinEligible": 0.550561797753
+          },
+          "le10": {
+            "threshold": 10,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 49,
+            "averageExposureReducedRateWithinEligible": 0.550561797753,
+            "loadReducedCount": 49,
+            "loadReducedRateWithinEligible": 0.550561797753,
+            "bothReducedCount": 49,
+            "bothReducedRateWithinEligible": 0.550561797753
+          },
+          "le15": {
+            "threshold": 15,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 49,
+            "averageExposureReducedRateWithinEligible": 0.550561797753,
+            "loadReducedCount": 49,
+            "loadReducedRateWithinEligible": 0.550561797753,
+            "bothReducedCount": 49,
+            "bothReducedRateWithinEligible": 0.550561797753
+          },
+          "le25": {
+            "threshold": 25,
+            "eligibleCount": 90,
+            "eligibleRateOfAllSamples": 1,
+            "averageExposureReducedCount": 50,
+            "averageExposureReducedRateWithinEligible": 0.555555555556,
+            "loadReducedCount": 50,
+            "loadReducedRateWithinEligible": 0.555555555556,
+            "bothReducedCount": 50,
+            "bothReducedRateWithinEligible": 0.555555555556
+          }
+        },
+        "extraWalkingMinutes": {
+          "le1": {
+            "threshold": 1,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 49,
+            "averageExposureReducedRateWithinEligible": 0.550561797753,
+            "loadReducedCount": 49,
+            "loadReducedRateWithinEligible": 0.550561797753,
+            "bothReducedCount": 49,
+            "bothReducedRateWithinEligible": 0.550561797753
+          },
+          "le3": {
+            "threshold": 3,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 49,
+            "averageExposureReducedRateWithinEligible": 0.550561797753,
+            "loadReducedCount": 49,
+            "loadReducedRateWithinEligible": 0.550561797753,
+            "bothReducedCount": 49,
+            "bothReducedRateWithinEligible": 0.550561797753
+          },
+          "le5": {
+            "threshold": 5,
+            "eligibleCount": 90,
+            "eligibleRateOfAllSamples": 1,
+            "averageExposureReducedCount": 50,
+            "averageExposureReducedRateWithinEligible": 0.555555555556,
+            "loadReducedCount": 50,
+            "loadReducedRateWithinEligible": 0.555555555556,
+            "bothReducedCount": 50,
+            "bothReducedRateWithinEligible": 0.555555555556
+          }
+        }
+      }
+    },
+    "coolest": {
+      "improvements": {
+        "averageExposureReduced": {
+          "count": 55,
+          "rate": 0.611111111111
+        },
+        "loadReduced": {
+          "count": 55,
+          "rate": 0.611111111111
+        },
+        "bothReduced": {
+          "count": 55,
+          "rate": 0.611111111111
+        },
+        "averageReducedLoadIncreased": {
+          "count": 0,
+          "rate": 0
+        },
+        "neitherReduced": {
+          "count": 35,
+          "rate": 0.388888888889
+        }
+      },
+      "distributions": {
+        "extraDistanceMeters": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 17.977411118385,
+          "median": 0.307934614453,
+          "p25": 0,
+          "p75": 11.594379491922,
+          "p90": 45.072890488878,
+          "max": 302.486531654604
+        },
+        "extraDistancePercent": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 0.913750577676,
+          "median": 0.024731315176,
+          "p25": 0,
+          "p75": 0.725953500104,
+          "p90": 2.341563481346,
+          "max": 16.497698249217
+        },
+        "extraWalkingMinutes": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 0.214016799028,
+          "median": 0.003665888267,
+          "p25": 0,
+          "p75": 0.138028327284,
+          "p90": 0.53658202963,
+          "max": 3.601030138745
+        },
+        "averageHeatExposureReduction": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 0.018767332464,
+          "median": 0.002797122154,
+          "p25": 0,
+          "p75": 0.016932216878,
+          "p90": 0.043900915297,
+          "max": 0.368337173884
+        },
+        "averageHeatExposureReductionPercent": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 2.256409150097,
+          "median": 0.346765581162,
+          "p25": 0,
+          "p75": 2.172377450948,
+          "p90": 5.550683816502,
+          "max": 40.957342764278
+        },
+        "modelledExposureLoadReduction": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 23.302271083698,
+          "median": 2.090291163638,
+          "p25": 0,
+          "p75": 25.524028280802,
+          "p90": 48.21191524464,
+          "max": 514.734106747687
+        },
+        "modelledExposureLoadReductionPercent": {
+          "count": 90,
+          "nullCount": 0,
+          "min": 0,
+          "mean": 1.4783488031,
+          "median": 0.281189938522,
+          "p25": 0,
+          "p75": 1.458745414456,
+          "p90": 3.88473657405,
+          "max": 31.216663335209
+        },
+        "greenIndicatorChange": {
+          "count": 90,
+          "nullCount": 0,
+          "min": -0.034140141564,
+          "mean": 0.016971337941,
+          "median": 0,
+          "p25": 0,
+          "p75": 0.005643082839,
+          "p90": 0.037960725136,
+          "max": 0.538484395845
+        },
+        "waterAccessIndicatorChange": {
+          "count": 90,
+          "nullCount": 0,
+          "min": -0.100876850982,
+          "mean": 0.02295798635,
+          "median": 0.000002250947,
+          "p25": 0,
+          "p75": 0.032295834878,
+          "p90": 0.066295499241,
+          "max": 0.38710015408
+        }
+      },
+      "detourThresholds": {
+        "extraDistancePercent": {
+          "le5": {
+            "threshold": 5,
+            "eligibleCount": 85,
+            "eligibleRateOfAllSamples": 0.944444444444,
+            "averageExposureReducedCount": 50,
+            "averageExposureReducedRateWithinEligible": 0.588235294118,
+            "loadReducedCount": 50,
+            "loadReducedRateWithinEligible": 0.588235294118,
+            "bothReducedCount": 50,
+            "bothReducedRateWithinEligible": 0.588235294118
+          },
+          "le10": {
+            "threshold": 10,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 54,
+            "averageExposureReducedRateWithinEligible": 0.606741573034,
+            "loadReducedCount": 54,
+            "loadReducedRateWithinEligible": 0.606741573034,
+            "bothReducedCount": 54,
+            "bothReducedRateWithinEligible": 0.606741573034
+          },
+          "le15": {
+            "threshold": 15,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 54,
+            "averageExposureReducedRateWithinEligible": 0.606741573034,
+            "loadReducedCount": 54,
+            "loadReducedRateWithinEligible": 0.606741573034,
+            "bothReducedCount": 54,
+            "bothReducedRateWithinEligible": 0.606741573034
+          },
+          "le25": {
+            "threshold": 25,
+            "eligibleCount": 90,
+            "eligibleRateOfAllSamples": 1,
+            "averageExposureReducedCount": 55,
+            "averageExposureReducedRateWithinEligible": 0.611111111111,
+            "loadReducedCount": 55,
+            "loadReducedRateWithinEligible": 0.611111111111,
+            "bothReducedCount": 55,
+            "bothReducedRateWithinEligible": 0.611111111111
+          }
+        },
+        "extraWalkingMinutes": {
+          "le1": {
+            "threshold": 1,
+            "eligibleCount": 84,
+            "eligibleRateOfAllSamples": 0.933333333333,
+            "averageExposureReducedCount": 49,
+            "averageExposureReducedRateWithinEligible": 0.583333333333,
+            "loadReducedCount": 49,
+            "loadReducedRateWithinEligible": 0.583333333333,
+            "bothReducedCount": 49,
+            "bothReducedRateWithinEligible": 0.583333333333
+          },
+          "le3": {
+            "threshold": 3,
+            "eligibleCount": 89,
+            "eligibleRateOfAllSamples": 0.988888888889,
+            "averageExposureReducedCount": 54,
+            "averageExposureReducedRateWithinEligible": 0.606741573034,
+            "loadReducedCount": 54,
+            "loadReducedRateWithinEligible": 0.606741573034,
+            "bothReducedCount": 54,
+            "bothReducedRateWithinEligible": 0.606741573034
+          },
+          "le5": {
+            "threshold": 5,
+            "eligibleCount": 90,
+            "eligibleRateOfAllSamples": 1,
+            "averageExposureReducedCount": 55,
+            "averageExposureReducedRateWithinEligible": 0.611111111111,
+            "loadReducedCount": 55,
+            "loadReducedRateWithinEligible": 0.611111111111,
+            "bothReducedCount": 55,
+            "bothReducedRateWithinEligible": 0.611111111111
+          }
+        }
+      }
+    }
+  }
+}
