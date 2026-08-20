@@ -2,7 +2,13 @@
 
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
-> **项目状态：** M0–M7 已完成。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model，以及 90 组确定性分层 OD 路线评价。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。M8 Production Deployment 尚未开始。
+> **项目状态：** M0–M8 已完成。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model，以及 90 组确定性分层 OD 路线评价。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。
+
+## Live Demo
+
+<https://katenn0613.github.io/CoolRoute_Tokyo/>
+
+日语项目说明见 [PROJECT_OVERVIEW_JA](docs/PROJECT_OVERVIEW_JA.md)。当前网站仅覆盖“皇居东侧—丸之内—东京站” Demo Area，不代表东京全域。
 
 ## 架构概览
 
@@ -14,7 +20,7 @@ CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客�
 - 正式运行后端：无
 - 数据库：无
 
-部署后的应用将从 `public/data/` 加载版本化的静态图结构和环境数据资源。它不会调用项目自建的寻路 API，也不需要服务器进程。
+部署后的应用从 GitHub Pages Artifact 加载版本化的静态图结构和环境数据资源。它不会调用项目自建的寻路 API，也不需要服务器进程。
 
 ## 本地运行
 
@@ -32,6 +38,15 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m unittest discover -s tests/python -v
 ```
+
+以实际 GitHub Project Pages Subpath 构建并验证静态 Artifact：
+
+```bash
+npm run build -- --base /CoolRoute_Tokyo/
+node scripts/validate_pages_build.mjs --dist dist --base-path /CoolRoute_Tokyo/
+```
+
+这里的子路径只是本地测试输入。Production Workflow 不写死仓库名，而是使用 `actions/configure-pages` 输出的 `base_path` 构建。
 
 测量正式 Road Graph 的本地 JSON 解析、索引和三条验收路线计算耗时：
 
@@ -66,7 +81,7 @@ npm run evaluate:routes
 ```text
 .
 ├── .github/
-│   └── workflows/       # 未来的静态构建/部署工作流
+│   └── workflows/       # GitHub Pages Artifact 构建/部署工作流
 ├── data/
 │   ├── processed/       # 开发阶段生成的 GIS 结果
 │   └── raw/             # 带来源记录的本地原始输入
@@ -165,9 +180,15 @@ M7 建立了直接复用正式 `prepareGraph()` 和 `calculateRouteBundle()` 的
 - [日语评价报告](docs/EVALUATION_SUMMARY_JA.md)；
 - [M7 设计规格](docs/superpowers/specs/2026-08-21-m7-route-evaluation-design.md)。
 
+## M8 Production Deployment
+
+M8 通过 GitHub 官方 Pages Artifact Workflow 部署 `main` 的正式静态构建。Workflow 先执行完整 JavaScript 测试，再使用 `actions/configure-pages` 的动态 `base_path` 进行 Vite Build，最后在上传前验证 HTML Asset、MapLibre Worker、Road Graph、Environment Metadata、Drinking Station GeoJSON 和 Repository Subpath HTTP 行为。
+
+`dist/` 不进入 Git History，也不创建 `gh-pages` Branch。Production Runtime 仍然只是 GitHub Pages 托管的 HTML、JavaScript、CSS 和轻量静态数据，没有线上后端。设计与验收边界见 [M8 规格](docs/superpowers/specs/2026-08-21-m8-production-deployment-design.md)。
+
 ## 后续里程碑
 
-- **M8 — Production Deployment：** GitHub Pages 正式部署、Subpath QA 和 Workflow 加固；
+- **M8 — Production Deployment：** 已完成 GitHub Pages 正式部署、Subpath QA 和 Workflow 加固；
 - **M9 — Weather：** 已取消作为 Production Feature，仅保留为 Future Work；
 - **M10 — Building Shade Prototype：** 仅处理当前 Demo Area，以秋分日 09:00、12:00、15:00 三个离散场景进行离线预计算；
 - **M11 — Tokyo Scale Expansion：** 使用增量区域切片管线扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。

@@ -4,6 +4,16 @@
 
 M1 建立来源、目录和 Loader 契约；M2 已获取真实 OpenStreetMap 步行道路图；M4 已完成真实官方绿色覆盖与饮水点的 Edge Enrichment。`pending` 表示等待后续里程碑，不表示获取失败。
 
+## Production Distribution
+
+M8 将浏览器所需的轻量数据随 GitHub Pages Artifact 发布：
+
+- Road Graph: <https://katenn0613.github.io/CoolRoute_Tokyo/data/graph.json>
+- Environment Metadata: <https://katenn0613.github.io/CoolRoute_Tokyo/data/environment_metadata.json>
+- Drinking Stations: <https://katenn0613.github.io/CoolRoute_Tokyo/data/drinking_stations.geojson>
+
+Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefile、CSV、GeoPackage 及其他 Raw GIS 只用于离线预处理，不进入 Pages Runtime。
+
 ## 概览
 
 | 数据 | 发布机构 | 优先级 | 当前状态 | Raw Path |
@@ -13,7 +23,7 @@ M1 建立来源、目录和 Loader 契约；M2 已获取真实 OpenStreetMap 步
 | Tokyowater Drinking Station | 东京都水道局 | P1 | `ready` | `data/raw/drinking_station/` |
 | Tokyo Street Trees | 东京都建设局 | P2 | `not_started` | `data/raw/trees/` |
 | Project PLATEAU 3D Buildings | 国土交通省 | P2 | `not_started` | `data/raw/plateau/` |
-| JMA Weather Data | 日本气象厅 | P2 | `not_started` | `data/raw/weather/` |
+| JMA Weather Data | 日本气象厅 | Future Work | `not_started` | `data/raw/weather/` |
 
 ## 1. OpenStreetMap Walking Network
 
@@ -105,12 +115,12 @@ M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式
 
 - **发布机构：** 日本气象厅
 - **官方来源：** <https://www.jma.go.jp/jma/index.html>
-- **用途：** 未来只作为 Environment Multiplier
+- **用途：** 已取消作为 Production Feature；仅保留为 Future Work 研究方向
 - **获取方式：** M1 只登记官方入口，不假设具体 API
 - **文件格式 / License：** 尚未核验
 - **本地位置：** Raw `data/raw/weather/`；Processed `data/processed/environment/`
 - **处理方法：** 尚未实施
-- **当前状态：** `not_started`，P2
+- **当前状态：** `not_started`；不进入当前 Production Roadmap
 - **已知限制：** 天气数据不得被描述为某条道路的真实气温。
 
 ## 数据获取失败时的统一行为
