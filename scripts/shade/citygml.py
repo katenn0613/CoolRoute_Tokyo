@@ -23,6 +23,7 @@ Coordinate3D = tuple[float, float, float]
 @dataclass(frozen=True)
 class ParsedSurface:
     id: str | None
+    surface_type: str | None
     exterior_ring: tuple[Coordinate3D, ...]
     interior_rings: tuple[tuple[Coordinate3D, ...], ...]
 
@@ -104,7 +105,10 @@ def _ring_from_boundary(boundary: ET.Element) -> tuple[Coordinate3D, ...]:
     return _parse_linear_ring(ring)
 
 
-def _parse_polygon(polygon: ET.Element) -> ParsedSurface:
+def _parse_polygon(
+    polygon: ET.Element,
+    surface_type: str | None = None,
+) -> ParsedSurface:
     exterior = next(
         (child for child in polygon if _local_name(child.tag) == "exterior"),
         None,
@@ -118,6 +122,7 @@ def _parse_polygon(polygon: ET.Element) -> ParsedSurface:
     )
     return ParsedSurface(
         id=polygon.attrib.get(GML_ID),
+        surface_type=surface_type,
         exterior_ring=_ring_from_boundary(exterior),
         interior_rings=interiors,
     )
@@ -125,8 +130,28 @@ def _parse_polygon(polygon: ET.Element) -> ParsedSurface:
 
 def _surface_index(owner: ET.Element) -> dict[str, ParsedSurface]:
     index: dict[str, ParsedSurface] = {}
+    indexed_elements: set[int] = set()
+    semantic_surface_types = {
+        "RoofSurface",
+        "WallSurface",
+        "GroundSurface",
+        "OuterFloorSurface",
+        "OuterCeilingSurface",
+        "ClosureSurface",
+    }
+    for boundary in owner.iter():
+        boundary_type = _local_name(boundary.tag)
+        if boundary_type not in semantic_surface_types:
+            continue
+        for element in boundary.iter():
+            if _local_name(element.tag) != "Polygon":
+                continue
+            surface = _parse_polygon(element, boundary_type)
+            indexed_elements.add(id(element))
+            if surface.id:
+                index[surface.id] = surface
     for element in owner.iter():
-        if _local_name(element.tag) != "Polygon":
+        if _local_name(element.tag) != "Polygon" or id(element) in indexed_elements:
             continue
         surface = _parse_polygon(element)
         if surface.id:
@@ -165,7 +190,10 @@ def _parse_solid(
             for polygon in member.iter():
                 if _local_name(polygon.tag) != "Polygon":
                     continue
-                surface = _parse_polygon(polygon)
+                polygon_id = polygon.attrib.get(GML_ID)
+                surface = surfaces_by_id.get(polygon_id) if polygon_id else None
+                if surface is None:
+                    surface = _parse_polygon(polygon)
                 key = ("id", surface.id) if surface.id else ("object", id(polygon))
                 if key not in seen:
                     surfaces.append(surface)
@@ -250,4 +278,3 @@ def iter_buildings(path: Path) -> Iterator[ParsedBuilding]:
             element.clear()
         elif local_name == "cityObjectMember":
             element.clear()
-

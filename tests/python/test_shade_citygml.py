@@ -26,6 +26,7 @@ class CityGmlParserTests(unittest.TestCase):
 
         self.assertEqual(building.lod2.unresolved_reference_ids, ())
         self.assertEqual(tuple(surface.id for surface in building.lod2.surfaces), ("xlink-roof",))
+        self.assertEqual(building.lod2.surfaces[0].surface_type, "RoofSurface")
 
     def test_parser_preserves_building_parts_and_polygon_holes(self):
         building = self.buildings()["synthetic-parts"]
