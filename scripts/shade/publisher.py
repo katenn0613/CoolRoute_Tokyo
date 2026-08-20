@@ -54,7 +54,7 @@ def build_shade_payload(
             "referenceDate": "2026-09-23",
             "timezone": "Asia/Tokyo",
             "scenarios": list(scenarios),
-            "solarAlgorithm": "NREL SPA",
+            "solarAlgorithm": "Meeus/NOAA solar geometry (NREL SPA azimuth convention)",
             "atmosphericRefractionApplied": False,
             "lodPolicy": "complete-lod2-else-complete-lod1",
             "heightSource": "geometry-z-range",
@@ -147,4 +147,3 @@ def publish_shade_json(payload: dict, destination: Path) -> None:
         handle.close()
         temporary_path.unlink(missing_ok=True)
         raise
-
