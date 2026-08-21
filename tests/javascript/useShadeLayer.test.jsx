@@ -42,9 +42,10 @@ describe('useShadeLayer', () => {
   })
 
   it('creates a candidate Context without committing the displayed scenario', async () => {
+    const loadShade = vi.fn().mockResolvedValue(payload)
     const { result } = renderHook(() => useShadeLayer({
       graph,
-      loadShade: vi.fn().mockResolvedValue(payload),
+      loadShade,
     }))
     await waitFor(() => expect(result.current.status).toBe('ready'))
 

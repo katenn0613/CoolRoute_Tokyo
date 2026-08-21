@@ -40,7 +40,7 @@ export function calculateRouteMetrics(edgeSequence, speedOrConfig = routingConfi
     }
   }
   const hasDistance = distanceMeters > 0
-  return {
+  const baseMetrics = {
     distanceMeters,
     walkingTimeSeconds: distanceMeters / config.walkingSpeedMetersPerSecond,
     edgeCount: edgeSequence.length,
@@ -48,14 +48,14 @@ export function calculateRouteMetrics(edgeSequence, speedOrConfig = routingConfi
     modelledExposureLoad,
     greenIndicator: hasDistance ? weightedGreen / distanceMeters : 0,
     waterAccessIndicator: hasDistance ? 1 - weightedWaterPenalty / distanceMeters : 0,
-    averageBuildingShadeScore: shadeContext
-      ? (hasDistance ? weightedShade / distanceMeters : 0)
-      : null,
-    shadeAwareAverageHeatExposure: shadeContext
-      ? (hasDistance ? shadeAwareExposureLoad / distanceMeters : 0)
-      : null,
-    shadeAwareExposureLoad: shadeContext ? shadeAwareExposureLoad : null,
-    modelledUnshadedDistance: shadeContext ? modelledUnshadedDistance : null,
-    shadeScenario: shadeContext?.scenario ?? null,
+  }
+  if (!shadeContext) return baseMetrics
+  return {
+    ...baseMetrics,
+    averageBuildingShadeScore: hasDistance ? weightedShade / distanceMeters : 0,
+    shadeAwareAverageHeatExposure: hasDistance ? shadeAwareExposureLoad / distanceMeters : 0,
+    shadeAwareExposureLoad,
+    modelledUnshadedDistance,
+    shadeScenario: shadeContext.scenario,
   }
 }

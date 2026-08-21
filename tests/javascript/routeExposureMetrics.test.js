@@ -29,14 +29,11 @@ describe('M5 Route Exposure Metrics', () => {
     })
   })
 
-  it('keeps Shade-aware fields null without a valid Shade Context', () => {
-    expect(calculateRouteMetrics([edge(100, 0.5, 0.2)])).toMatchObject({
-      averageBuildingShadeScore: null,
-      shadeAwareAverageHeatExposure: null,
-      shadeAwareExposureLoad: null,
-      modelledUnshadedDistance: null,
-      shadeScenario: null,
-    })
+  it('keeps the exact M5 contract without a valid Shade Context', () => {
+    const metrics = calculateRouteMetrics([edge(100, 0.5, 0.2)])
+    expect(metrics).not.toHaveProperty('averageBuildingShadeScore')
+    expect(metrics).not.toHaveProperty('shadeAwareAverageHeatExposure')
+    expect(metrics).not.toHaveProperty('modelledUnshadedDistance')
   })
 
   it('calculates distance-weighted Building Shade and Shade-aware exposure separately', () => {

@@ -109,9 +109,10 @@ describe('useRouteBundle', () => {
 
   it('recalculates the existing bundle when the committed Shade scenario changes', async () => {
     const graph = createSyntheticRoadGraph()
+    const loadGraph = () => Promise.resolve({ graph, loadTimeMs: 1 })
     const loadShade = () => Promise.resolve(shadePayload(graph))
     const { result } = renderHook(() => useRouteBundle({
-      loadGraph: () => Promise.resolve({ graph, loadTimeMs: 1 }),
+      loadGraph,
       loadShade,
     }))
     await waitFor(() => expect(result.current.shadeStatus).toBe('ready'))
@@ -129,9 +130,10 @@ describe('useRouteBundle', () => {
   })
 
   it('marks Green/Water-only fallback explicitly when Shade fails', async () => {
+    const loadShade = () => Promise.reject(new Error('unavailable'))
     const { result } = renderHook(() => useRouteBundle({
       loadGraph: successfulLoader,
-      loadShade: () => Promise.reject(new Error('unavailable')),
+      loadShade,
     }))
     await waitFor(() => expect(result.current.shadeStatus).toBe('error'))
     expect(result.current.routingEnvironmentStatus).toBe('base-only')
