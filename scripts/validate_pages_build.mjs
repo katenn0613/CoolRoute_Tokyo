@@ -4,12 +4,14 @@ import { createServer } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { validateGraphPayload } from '../src/routing/graphLoader.js'
+import { prepareGraph, validateGraphPayload } from '../src/routing/graphLoader.js'
+import { validateShadePayload } from '../src/shade/shadeLoader.js'
 
 const REQUIRED_DATA_FILES = [
   'data/graph.json',
   'data/environment_metadata.json',
   'data/drinking_stations.geojson',
+  'data/shade.json',
 ]
 
 export function normalizeBasePath(value) {
@@ -210,6 +212,8 @@ export async function validatePagesBuild({ distDirectory, basePath, verifyHttp =
     'drinking_stations.geojson',
   )
   const drinkingStationCount = validateStations(stations)
+  const shade = await readJson(path.join(resolvedDist, 'data/shade.json'), 'shade.json')
+  validateShadePayload(shade, prepareGraph(graphPayload))
   const http = verifyHttp
     ? await verifyArtifactHttp(resolvedDist, normalizedBasePath)
     : { verified: false }
@@ -224,6 +228,7 @@ export async function validatePagesBuild({ distDirectory, basePath, verifyHttp =
       graphVersion: graphPayload.metadata.graphVersion,
     },
     drinkingStationCount,
+    shadeEdgeCount: Object.keys(shade.edgeShadeScores).length,
     http,
   }
 }

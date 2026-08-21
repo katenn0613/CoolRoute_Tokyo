@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from shapely.geometry import LineString, Polygon, box
 
-from scripts.shade.edge_scores import ProjectedEdge, calculate_edge_shade_scores
+from scripts.shade.edge_scores import (
+    ProjectedEdge,
+    calculate_edge_shade_scores,
+    load_graph_edges,
+)
 
 
 def edge(edge_id: str, coordinates) -> ProjectedEdge:
@@ -13,6 +20,28 @@ def edge(edge_id: str, coordinates) -> ProjectedEdge:
 
 
 class EdgeShadeScoreTests(unittest.TestCase):
+    def test_load_graph_edges_projects_browser_geometry_without_changing_ids(self):
+        graph = {
+            "edges": [
+                {
+                    "id": "u:v:0",
+                    "source": "u",
+                    "target": "v",
+                    "geometry": [[139.75, 35.68], [139.751, 35.681]],
+                }
+            ]
+        }
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "graph.json"
+            path.write_text(json.dumps(graph), encoding="utf-8")
+
+            edges = load_graph_edges(path, "EPSG:6677")
+
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0].id, "u:v:0")
+        self.assertGreater(edges[0].projected_length, 100)
+        self.assertLess(edges[0].projected_length, 200)
+
     def test_score_uses_projected_edge_geometry_length(self):
         scores = calculate_edge_shade_scores(
             (edge("a:b:0", ((0, 0), (10, 0))),),

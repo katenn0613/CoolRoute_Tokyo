@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from io import BytesIO
 import json
 import unittest
+import zipfile
 
-from scripts.data_sources.plateau_source import PlateauEntry, PlateauSource
+from scripts.data_sources.plateau_source import (
+    PlateauEntry,
+    PlateauSource,
+    RemoteZipReader,
+    official_plateau_entries,
+)
 from scripts.data_sources.source_utils import SourceNotAvailableError
 from scripts.shade.config import default_shade_config
 
@@ -116,6 +123,33 @@ class PlateauSourceTests(unittest.TestCase):
 
         self.assertEqual(cached_path.read_bytes(), b"stable official bytes")
         self.assertEqual(tuple(self.raw_directory.glob("*.partial")), ())
+
+    def test_remote_zip_reader_extracts_only_requested_entry(self):
+        archive = BytesIO()
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
+            output.writestr("udx/bldg/first.gml", b"first official bytes")
+            output.writestr("udx/bldg/second.gml", b"second official bytes")
+        payload = archive.getvalue()
+        requested_ranges = []
+
+        def read_range(start: int, end: int) -> bytes:
+            requested_ranges.append((start, end))
+            return payload[start : end + 1]
+
+        reader = RemoteZipReader(len(payload), read_range)
+
+        self.assertEqual(reader.read_entry("udx/bldg/second.gml"), b"second official bytes")
+        self.assertLess(sum(end - start + 1 for start, end in requested_ranges), len(payload) * 2)
+
+    def test_official_manifest_contains_demo_area_building_meshes(self):
+        planned = PlateauSource(entries=official_plateau_entries()).plan_entries(
+            (139.744, 35.672, 139.771, 35.694)
+        )
+
+        self.assertEqual(len(planned), 12)
+        self.assertEqual(planned[0].mesh_id, "53394509")
+        self.assertEqual(planned[-1].mesh_id, "53394631")
+        self.assertTrue(all(entry.compressed_size > 0 for entry in planned))
 
 
 if __name__ == "__main__":

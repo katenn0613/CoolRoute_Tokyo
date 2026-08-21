@@ -9,7 +9,11 @@ from scripts.shade.citygml import (
     ParsedSolid,
     ParsedSurface,
 )
-from scripts.shade.geometry import BuildingGeometryError, select_building_geometry
+from scripts.shade.geometry import (
+    BuildingGeometryError,
+    project_building_geometry,
+    select_building_geometry,
+)
 
 
 def surface(
@@ -64,6 +68,30 @@ def building(
 
 
 class BuildingGeometrySelectionTests(unittest.TestCase):
+    def test_project_geometry_converts_plateau_axis_order_to_metric_crs(self):
+        source = prism(2, 5, 15, "geo")
+        geographic_surfaces = tuple(
+            replace(
+                item,
+                exterior_ring=tuple(
+                    (35.68 + x / 1000, 139.75 + y / 1000, z)
+                    for x, y, z in item.exterior_ring
+                ),
+            )
+            for item in source.surfaces
+        )
+        selected = select_building_geometry(
+            building(lod2=replace(source, surfaces=geographic_surfaces))
+        )
+
+        projected = project_building_geometry(selected, "EPSG:6697", "EPSG:6677")
+
+        first = projected.solids[0].surfaces[0].exterior_ring[0]
+        self.assertAlmostEqual(first[0], -7543.124, delta=1)
+        self.assertAlmostEqual(first[1], -35499.182, delta=1)
+        self.assertEqual(first[2], 5)
+        self.assertAlmostEqual(projected.height, selected.height)
+
     def test_complete_lod2_wins_and_height_uses_all_building_parts(self):
         parts = (
             ParsedBuildingPart("part-a", prism(1, 10, 20, "a1"), prism(2, 10, 20, "a2")),

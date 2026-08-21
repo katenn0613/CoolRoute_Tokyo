@@ -14,6 +14,7 @@ function validGraph() {
   return {
     metadata: {
       graphVersion: '1.1.0',
+      generatedAt: 'graph-baseline',
       nodeCount: 2,
       edgeCount: 1,
     },
@@ -44,11 +45,25 @@ function validStations() {
   }
 }
 
+function validShade() {
+  return {
+    metadata: {
+      schemaVersion: '1.0.0',
+      scenarios: ['09:00', '12:00', '15:00'],
+      roadGraphSchemaVersion: '1.1.0',
+      roadGraphGeneratedAt: 'graph-baseline',
+      edgeCount: 1,
+    },
+    edgeShadeScores: { 'a-b-0': [0.2, 0.5, 0.3] },
+  }
+}
+
 async function createArtifact({
   basePath = '/demo-repo/',
   graph = validGraph(),
   environmentMetadata = { schemaVersion: '1.0.0' },
   stations = validStations(),
+  shade = validShade(),
   htmlAssetBasePath = basePath,
   includeWorker = true,
   referenceWorker = true,
@@ -87,6 +102,9 @@ async function createArtifact({
       JSON.stringify(stations),
     )
   }
+  if (shade !== null) {
+    await writeFile(path.join(directory, 'data/shade.json'), JSON.stringify(shade))
+  }
 
   return directory
 }
@@ -121,6 +139,7 @@ describe('validatePagesBuild', () => {
       assetCount: 2,
       graph: { nodeCount: 2, edgeCount: 1, graphVersion: '1.1.0' },
       drinkingStationCount: 1,
+      shadeEdgeCount: 1,
       http: {
         verified: true,
         rootPathStatus: 404,
@@ -143,6 +162,7 @@ describe('validatePagesBuild', () => {
     ['graph.json', { graph: null }],
     ['environment_metadata.json', { environmentMetadata: null }],
     ['drinking_stations.geojson', { stations: null }],
+    ['shade.json', { shade: null }],
   ])('rejects a missing required production resource: %s', async (label, options) => {
     const distDirectory = await createArtifact(options)
 

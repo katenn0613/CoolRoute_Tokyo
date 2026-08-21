@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import math
+
+from pyproj import Transformer
 
 from .citygml import ParsedBuilding, ParsedSolid, ParsedSurface
 
@@ -131,3 +134,63 @@ def select_building_geometry(building: ParsedBuilding) -> SelectedBuildingGeomet
         measured_height_difference=difference,
         quality_flags=quality_flags,
     )
+
+
+def project_building_geometry(
+    building: SelectedBuildingGeometry,
+    source_crs: str,
+    target_crs: str,
+) -> SelectedBuildingGeometry:
+    """将 PLATEAU 原生纬度/经度/Z 坐标转换为平面分析 CRS。"""
+
+    if not source_crs:
+        raise BuildingGeometryError(f"Building {building.building_id} 缺少 source CRS。")
+    # PLATEAU EPSG:6697 posList 的正式顺序为 latitude, longitude, height。
+    # Transformer 固定为 GIS 常用的 x/y（longitude/latitude）接口，因此调用时
+    # 显式把 CityGML 的前两轴交换，输出与 Road Graph 的 easting/northing 一致。
+    transformer = _coordinate_transformer(source_crs, target_crs)
+
+    def transform_ring(ring):
+        result = tuple(transformer.transform(longitude, latitude, z) for latitude, longitude, z in ring)
+        if any(not all(math.isfinite(value) for value in coordinate) for coordinate in result):
+            raise BuildingGeometryError(
+                f"Building {building.building_id} CRS 转换产生无效坐标。"
+            )
+        return result
+
+    projected_solids = []
+    for solid in building.solids:
+        surfaces = tuple(
+            ParsedSurface(
+                id=surface.id,
+                surface_type=surface.surface_type,
+                exterior_ring=transform_ring(surface.exterior_ring),
+                interior_rings=tuple(transform_ring(ring) for ring in surface.interior_rings),
+            )
+            for surface in solid.surfaces
+        )
+        projected_solids.append(
+            SelectedSolid(
+                lod=solid.lod,
+                surfaces=surfaces,
+                min_z=solid.min_z,
+                max_z=solid.max_z,
+                ground_z=solid.ground_z,
+            )
+        )
+    return SelectedBuildingGeometry(
+        building_id=building.building_id,
+        selected_lod=building.selected_lod,
+        solids=tuple(projected_solids),
+        min_z=building.min_z,
+        max_z=building.max_z,
+        height=building.height,
+        measured_height=building.measured_height,
+        measured_height_difference=building.measured_height_difference,
+        quality_flags=building.quality_flags,
+    )
+
+
+@lru_cache(maxsize=8)
+def _coordinate_transformer(source_crs: str, target_crs: str) -> Transformer:
+    return Transformer.from_crs(source_crs, target_crs, always_xy=True)

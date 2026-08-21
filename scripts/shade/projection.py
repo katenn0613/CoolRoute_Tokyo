@@ -106,3 +106,16 @@ def project_building_shadow(
         footprint=footprint_union,
     )
 
+
+def build_shadow_union(
+    buildings: tuple[SelectedBuildingGeometry, ...],
+    solar: SolarPosition,
+) -> BaseGeometry:
+    """合并建筑阴影并扣除场景内全部建筑 Footprint。"""
+
+    if not buildings:
+        return Polygon()
+    results = tuple(project_building_shadow(building, solar) for building in buildings)
+    shadows = _polygonal(unary_union([result.shadow for result in results]))
+    footprints = _polygonal(unary_union([result.footprint for result in results]))
+    return _polygonal(shadows.difference(footprints))
