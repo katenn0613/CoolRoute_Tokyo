@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { shadeConfig } from '../config/shadeConfig.js'
+import { createShadeContext } from '../routing/shadeContext.js'
 import { buildShadeFeatureCollection } from './shadeLayer.js'
 import { loadShadeData, validateShadePayload } from './shadeLoader.js'
 
@@ -26,12 +27,23 @@ export function useShadeLayer({ graph, loadShade = loadShadeData } = {}) {
     return () => { active = false }
   }, [graph, loadShade])
 
-  const setScenario = (nextScenario) => {
+  const createRoutingContext = useCallback((nextScenario) => {
     if (!shadeConfig.scenarios.includes(nextScenario)) {
       throw new RangeError(`不支持的 Shade 场景：${nextScenario}`)
     }
+    if (state.status !== 'ready') {
+      throw new Error('Shade Routing Context 尚未就绪。')
+    }
+    return createShadeContext(state.payload, nextScenario)
+  }, [state.payload, state.status])
+  const commitScenario = useCallback((nextScenario) => {
+    createRoutingContext(nextScenario)
     setScenarioState(nextScenario)
-  }
+  }, [createRoutingContext])
+  const routingContext = useMemo(
+    () => state.status === 'ready' ? createShadeContext(state.payload, scenario) : null,
+    [scenario, state.payload, state.status],
+  )
   const geoJSON = useMemo(
     () => state.status === 'ready'
       ? buildShadeFeatureCollection(graph, state.payload, scenario)
@@ -42,8 +54,10 @@ export function useShadeLayer({ graph, loadShade = loadShadeData } = {}) {
     status: state.status,
     error: state.error,
     scenario,
-    setScenario,
+    setScenario: commitScenario,
+    commitScenario,
+    createRoutingContext,
+    routingContext,
     geoJSON,
   }
 }
-

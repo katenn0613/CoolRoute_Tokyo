@@ -40,6 +40,7 @@ export function MapLayerControls({
             <option key={scenario} value={scenario}>{scenario}</option>
           ))}
         </select>
+        <small>この時刻の日陰条件を経路計算に反映</small>
       </label>
       {shadeStatus === 'error' && <small role="status">日陰データを利用できません</small>}
       <label>

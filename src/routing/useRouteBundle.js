@@ -5,6 +5,7 @@ import { calculateRouteBundle } from './calculateRouteBundle.js'
 import { buildExposureFeatureCollection } from './exposureLayer.js'
 import { loadRoadGraph } from './graphLoader.js'
 import { findNearestNode } from './nearestNode.js'
+import { useShadeLayer } from '../shade/useShadeLayer.js'
 import {
   PHASES,
   createInitialSelectionState,
@@ -15,12 +16,16 @@ import { toUserRoutingMessage } from './userMessages.js'
 
 class RoutingInteractionError extends Error {}
 
-export function useRouteBundle({ loadGraph = loadRoadGraph } = {}) {
+export function useRouteBundle({ loadGraph = loadRoadGraph, loadShade } = {}) {
   const graphRef = useRef(null)
   const [selection, dispatch] = useReducer(selectionReducer, undefined, createInitialSelectionState)
   const [graphState, setGraphState] = useState({ status: 'loading', loadTimeMs: null, error: null })
   const [exposureGeoJSON, setExposureGeoJSON] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  const shadeState = useShadeLayer({
+    graph: graphState.status === 'ready' ? graphRef.current : null,
+    loadShade,
+  })
 
   useEffect(() => {
     let active = true
@@ -57,14 +62,20 @@ export function useRouteBundle({ loadGraph = loadRoadGraph } = {}) {
     return { ...snapped, clickedPoint: [...point] }
   }, [])
 
-  const calculate = useCallback((start, destination) => {
+  const calculate = useCallback((start, destination, shadeContext = shadeState.routingContext) => {
     setIsCalculating(true)
     try {
-      return calculateRouteBundle(graphRef.current, start.node.id, destination.node.id, routingConfig)
+      return calculateRouteBundle(
+        graphRef.current,
+        start.node.id,
+        destination.node.id,
+        routingConfig,
+        shadeContext,
+      )
     } finally {
       setIsCalculating(false)
     }
-  }, [])
+  }, [shadeState.routingContext])
 
   const handleMapClick = useCallback((point) => {
     if (graphState.status !== 'ready' || selection.phase === PHASES.ROUTE_READY) return
@@ -123,6 +134,36 @@ export function useRouteBundle({ loadGraph = loadRoadGraph } = {}) {
       dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
     }
   }, [calculate, graphState.status, selection.destination, selection.start])
+  const changeShadeScenario = useCallback((nextScenario) => {
+    try {
+      const candidateContext = shadeState.createRoutingContext(nextScenario)
+      if (selection.start && selection.destination && graphState.status === 'ready') {
+        const route = calculate(selection.start, selection.destination, candidateContext)
+        dispatch({ type: 'ROUTE_RECALCULATED', route })
+      }
+      shadeState.commitScenario(nextScenario)
+    } catch (error) {
+      dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
+    }
+  }, [calculate, graphState.status, selection.destination, selection.start, shadeState])
+
+  useEffect(() => {
+    if (
+      !shadeState.routingContext
+      || !selection.route
+      || !selection.start
+      || !selection.destination
+      || selection.route.routes.fastest.metrics.shadeScenario === shadeState.scenario
+    ) return
+    try {
+      dispatch({
+        type: 'ROUTE_RECALCULATED',
+        route: calculate(selection.start, selection.destination, shadeState.routingContext),
+      })
+    } catch (error) {
+      dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
+    }
+  }, [calculate, selection.destination, selection.route, selection.start, shadeState.routingContext, shadeState.scenario])
 
   const prompt = graphState.status === 'loading'
     ? '道路データを読み込んでいます…'
@@ -144,9 +185,20 @@ export function useRouteBundle({ loadGraph = loadRoadGraph } = {}) {
     prompt,
     routes: selection.route?.routes ?? null,
     comparisons: selection.route?.comparisons ?? null,
+    shadeAwareComparisons: selection.route?.shadeAwareComparisons ?? null,
     routeCalculationTimeMs: selection.route?.totalCalculationTimeMs ?? null,
     metrics: selectedRoute?.metrics ?? null,
     routeGeoJSON: selectedRoute?.geoJSON ?? null,
+    shadeGeoJSON: shadeState.geoJSON,
+    shadeStatus: shadeState.status,
+    shadeError: shadeState.error,
+    shadeScenario: shadeState.scenario,
+    routingEnvironmentStatus: shadeState.routingContext
+      ? 'shade-aware'
+      : shadeState.status === 'error'
+        ? 'base-only'
+        : 'loading',
+    changeShadeScenario,
     handleMapClick,
     selectStart,
     selectDestination,

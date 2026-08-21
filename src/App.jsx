@@ -4,11 +4,9 @@ import { ProductInfo } from './components/ProductInfo.jsx'
 import { RouteControls } from './components/RouteControls.jsx'
 import { PHASES } from './routing/selectionMachine.js'
 import { useRouteBundle } from './routing/useRouteBundle.js'
-import { useShadeLayer } from './shade/useShadeLayer.js'
 
 export default function App() {
   const routingState = useRouteBundle()
-  const shadeState = useShadeLayer({ graph: routingState.roadGraph })
   const [sheetExpanded, setSheetExpanded] = useState(true)
   const interactionEnabled = routingState.graphStatus === 'ready'
     && routingState.phase !== PHASES.ROUTE_READY
@@ -51,10 +49,10 @@ export default function App() {
         onMapClick={routingState.handleMapClick}
         routes={routingState.routes}
         selectedMode={routingState.selectedMode}
-        shadeGeoJSON={shadeState.geoJSON}
-        shadeScenario={shadeState.scenario}
-        shadeStatus={shadeState.status}
-        onShadeScenarioChange={shadeState.setScenario}
+        shadeGeoJSON={routingState.shadeGeoJSON}
+        shadeScenario={routingState.shadeScenario}
+        shadeStatus={routingState.shadeStatus}
+        onShadeScenarioChange={routingState.changeShadeScenario}
         start={routingState.start}
       />
     </main>

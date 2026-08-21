@@ -12,17 +12,6 @@ vi.mock('../../src/routing/useRouteBundle.js', () => ({
   useRouteBundle: () => routingHook.state,
 }))
 
-const shadeHook = vi.hoisted(() => ({ args: null }))
-vi.mock('../../src/shade/useShadeLayer.js', () => ({
-  useShadeLayer: (args) => {
-    shadeHook.args = args
-    return {
-      status: 'ready', error: null, scenario: '12:00',
-      setScenario: vi.fn(), geoJSON: { type: 'FeatureCollection', features: [] },
-    }
-  },
-}))
-
 function metrics(distance = 1000, exposure = 0.6) {
   return {
     distanceMeters: distance,
@@ -32,6 +21,9 @@ function metrics(distance = 1000, exposure = 0.6) {
     modelledExposureLoad: distance * exposure,
     greenIndicator: 0.35,
     waterAccessIndicator: 0.7,
+    averageBuildingShadeScore: 0.6,
+    shadeAwareAverageHeatExposure: 0.45,
+    shadeScenario: '12:00',
   }
 }
 
@@ -44,6 +36,9 @@ function routingState(overrides = {}) {
     reset: vi.fn(), recalculate: vi.fn(), selectMode: vi.fn(),
     selectedMode: 'balanced', routes: null, comparisons: null,
     roadGraph: null, isCalculating: false,
+    shadeStatus: 'ready', shadeScenario: '12:00',
+    shadeGeoJSON: { type: 'FeatureCollection', features: [] },
+    changeShadeScenario: vi.fn(), routingEnvironmentStatus: 'shade-aware',
     ...overrides,
   }
 }
@@ -78,15 +73,14 @@ function readyState(overrides = {}) {
 describe('M6 日语正式产品页面', () => {
   beforeEach(() => { routingHook.state = routingState() })
 
-  it('将 Road Graph 交给独立 Shade Hook 并传入地图，不改变路线状态', () => {
-    const roadGraph = { metadata: { graphVersion: '1.1.0' }, edges: new Map() }
-    routingHook.state = routingState({ roadGraph })
+  it('将 Route Hook 的同一 Shade 场景传入地图，不改变路线状态', () => {
+    routingHook.state = routingState()
 
     render(<App />)
 
-    expect(shadeHook.args.graph).toBe(roadGraph)
     expect(mapViewMock.props.shadeStatus).toBe('ready')
     expect(mapViewMock.props.shadeScenario).toBe('12:00')
+    expect(mapViewMock.props.onShadeScenarioChange).toBe(routingHook.state.changeShadeScenario)
     expect(routingHook.state.recalculate).not.toHaveBeenCalled()
   })
 
@@ -119,6 +113,14 @@ describe('M6 日语正式产品页面', () => {
     render(<App />)
     expect(screen.getByText(/モデル上の累積暑さ曝露を8%低減/)).toBeInTheDocument()
     expect(screen.getByText('平均暑さ曝露スコア −5%')).toBeInTheDocument()
+  })
+
+  it('Route Detail 只展示批准的两个 Building Shade 指标', () => {
+    routingHook.state = readyState()
+    render(<App />)
+    expect(screen.getByText('平均建物日陰スコア')).toBeInTheDocument()
+    expect(screen.getByText('日陰反映後の暑さ曝露スコア')).toBeInTheDocument()
+    expect(screen.queryByText(/modelledUnshadedDistance/i)).not.toBeInTheDocument()
   })
 
   it('不可计算的百分比显示比較不可', () => {

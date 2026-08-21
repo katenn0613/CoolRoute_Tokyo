@@ -2,7 +2,11 @@ import { routingConfig } from '../config/routingConfig.js'
 import { weightedDijkstra } from './dijkstra.js'
 import { ROUTING_MODES, createEdgeWeightFunction } from './exposureModel.js'
 import { buildRouteGeoJSON } from './routeGeometry.js'
-import { compareRouteToFastest, passesDetourGuard } from './routeComparison.js'
+import {
+  compareRouteToFastest,
+  compareShadeAwareRouteToFastest,
+  passesDetourGuard,
+} from './routeComparison.js'
 import { calculateRouteMetrics } from './routeMetrics.js'
 
 export class RouteBundleError extends Error {
@@ -12,19 +16,30 @@ export class RouteBundleError extends Error {
   }
 }
 
-export function calculateRouteBundle(graph, startId, destinationId, overrides = {}) {
+export function calculateRouteBundle(
+  graph,
+  startId,
+  destinationId,
+  overrides = {},
+  shadeContext = null,
+) {
   const config = { ...routingConfig, ...overrides }
   const totalStartedAt = performance.now()
   const routes = {}
   for (const mode of Object.values(ROUTING_MODES)) {
     const startedAt = performance.now()
-    const result = weightedDijkstra(graph, startId, destinationId, createEdgeWeightFunction(mode, config))
+    const result = weightedDijkstra(
+      graph,
+      startId,
+      destinationId,
+      createEdgeWeightFunction(mode, config, shadeContext),
+    )
     if (!result.found) throw new RouteBundleError('所选两点之间找不到可通行路线。')
     routes[mode] = {
       mode,
       result,
       geoJSON: buildRouteGeoJSON(result.edgeSequence),
-      metrics: calculateRouteMetrics(result.edgeSequence, config),
+      metrics: calculateRouteMetrics(result.edgeSequence, config, shadeContext),
       calculationTimeMs: performance.now() - startedAt,
     }
   }
@@ -37,12 +52,20 @@ export function calculateRouteBundle(graph, startId, destinationId, overrides = 
     )) throw new RouteBundleError(`${mode} Route 超过 maximumExtraDistanceRatio。`)
   }
 
+  const comparisons = {
+    balanced: compareRouteToFastest(routes.balanced.metrics, routes.fastest.metrics),
+    coolest: compareRouteToFastest(routes.coolest.metrics, routes.fastest.metrics),
+  }
+  const shadeAwareComparisons = shadeContext
+    ? {
+        balanced: compareShadeAwareRouteToFastest(routes.balanced.metrics, routes.fastest.metrics),
+        coolest: compareShadeAwareRouteToFastest(routes.coolest.metrics, routes.fastest.metrics),
+      }
+    : null
   return {
     routes,
-    comparisons: {
-      balanced: compareRouteToFastest(routes.balanced.metrics, routes.fastest.metrics),
-      coolest: compareRouteToFastest(routes.coolest.metrics, routes.fastest.metrics),
-    },
+    comparisons,
+    shadeAwareComparisons,
     totalCalculationTimeMs: performance.now() - totalStartedAt,
   }
 }

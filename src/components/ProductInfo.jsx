@@ -10,6 +10,11 @@ export function ProductInfo() {
             </a>
           </li>
           <li>
+            <a href="https://www.geospatial.jp/ckan/dataset/plateau-13101-chiyoda-ku-2023" rel="noreferrer" target="_blank">
+              国土交通省 Project PLATEAU 建築物モデル
+            </a>
+          </li>
+          <li>
             <a
               href="https://catalog.data.metro.tokyo.lg.jp/dataset/t000008d2000000024"
               rel="noreferrer"
@@ -33,8 +38,9 @@ export function ProductInfo() {
         <summary>計算方法</summary>
         <p>
           CoolRoute Tokyo は、道路距離、緑地データ、給水スポットへの近さを用いて
-          道路ごとのモデル上の暑さ曝露指標を計算し、徒歩距離とのバランスを考慮して
-          ルートを探索します。
+          Project PLATEAU から秋分日の建物日陰を離線推定し、緑・給水による指標を75%、
+          建物日陰を25%の環境要因として組み合わせます。09:00、12:00、15:00 の
+          日陰条件と徒歩距離のバランスを考慮してルートを探索します。
         </p>
         <p className="disclaimer">
           本サービスの「暑さ曝露スコア」は、公開データをもとにしたモデル上の環境指標であり、

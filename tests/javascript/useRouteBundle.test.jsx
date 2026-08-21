@@ -8,6 +8,22 @@ function successfulLoader() {
   return Promise.resolve({ graph: createSyntheticRoadGraph(), loadTimeMs: 12.5 })
 }
 
+function shadePayload(graph) {
+  return {
+    metadata: {
+      schemaVersion: '1.0.0',
+      roadGraphSchemaVersion: graph.metadata.graphVersion,
+      roadGraphGeneratedAt: graph.metadata.generatedAt,
+      edgeCount: graph.edges.size,
+      scenarios: ['09:00', '12:00', '15:00'],
+    },
+    edgeShadeScores: Object.fromEntries([...graph.edges.keys()].map((edgeId) => [
+      edgeId,
+      edgeId === 'a:b:fast' || edgeId === 'b:d:0' ? [0, 1, 0] : [1, 0, 1],
+    ])),
+  }
+}
+
 describe('useRouteBundle', () => {
   it('loads one graph and calculates all three routes after the second valid click', async () => {
     const graph = createSyntheticRoadGraph()
@@ -89,5 +105,35 @@ describe('useRouteBundle', () => {
     expect(result.current.destination).toBeNull()
     expect(result.current.route).toBeNull()
     expect(result.current.selectedMode).toBe('balanced')
+  })
+
+  it('recalculates the existing bundle when the committed Shade scenario changes', async () => {
+    const graph = createSyntheticRoadGraph()
+    const loadShade = () => Promise.resolve(shadePayload(graph))
+    const { result } = renderHook(() => useRouteBundle({
+      loadGraph: () => Promise.resolve({ graph, loadTimeMs: 1 }),
+      loadShade,
+    }))
+    await waitFor(() => expect(result.current.shadeStatus).toBe('ready'))
+    act(() => result.current.handleMapClick([139.75, 35.68]))
+    act(() => result.current.handleMapClick([139.753, 35.682]))
+    const fastestIds = result.current.routes.fastest.result.edgeSequence.map((edge) => edge.id)
+    const beforeCoolest = result.current.routes.coolest.result.edgeSequence.map((edge) => edge.id)
+
+    act(() => result.current.changeShadeScenario('09:00'))
+
+    expect(result.current.shadeScenario).toBe('09:00')
+    expect(result.current.routes.fastest.result.edgeSequence.map((edge) => edge.id)).toEqual(fastestIds)
+    expect(result.current.routes.coolest.result.edgeSequence.map((edge) => edge.id)).not.toEqual(beforeCoolest)
+    expect(result.current.routingEnvironmentStatus).toBe('shade-aware')
+  })
+
+  it('marks Green/Water-only fallback explicitly when Shade fails', async () => {
+    const { result } = renderHook(() => useRouteBundle({
+      loadGraph: successfulLoader,
+      loadShade: () => Promise.reject(new Error('unavailable')),
+    }))
+    await waitFor(() => expect(result.current.shadeStatus).toBe('error'))
+    expect(result.current.routingEnvironmentStatus).toBe('base-only')
   })
 })

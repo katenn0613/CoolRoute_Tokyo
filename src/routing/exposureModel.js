@@ -1,4 +1,5 @@
 import { routingConfig } from '../config/routingConfig.js'
+import { getEdgeShadeScore } from './shadeContext.js'
 
 export const ROUTING_MODES = Object.freeze({
   FASTEST: 'fastest',
@@ -45,7 +46,22 @@ export function calculateEdgeHeatExposure(edge, overrides = {}) {
   return Math.min(1, Math.max(0, exposure))
 }
 
-export function createEdgeWeightFunction(mode, overrides = {}) {
+export function calculateShadeAwareHeatExposure(edge, shadeContext, overrides = {}) {
+  const config = mergedConfig(overrides)
+  if (shadeContext?.shadeWeight !== config.shadeContributionWeight) {
+    throw new RangeError(`Shade Context weight 必须为 ${config.shadeContributionWeight}。`)
+  }
+  const baseHeatExposure = calculateEdgeHeatExposure(edge, config)
+  const shadeScore = getEdgeShadeScore(shadeContext, edge?.id)
+  const exposure = (1 - shadeContext.shadeWeight) * baseHeatExposure
+    + shadeContext.shadeWeight * (1 - shadeScore)
+  if (!Number.isFinite(exposure) || exposure < -1e-12 || exposure > 1 + 1e-12) {
+    throw new RangeError(`Edge ${edge?.id ?? 'unknown'} 的 Shade-aware Heat Exposure Score 无效。`)
+  }
+  return Math.min(1, Math.max(0, exposure))
+}
+
+export function createEdgeWeightFunction(mode, overrides = {}, shadeContext = null) {
   const config = mergedConfig(overrides)
   const lambdas = {
     [ROUTING_MODES.FASTEST]: 0,
@@ -59,6 +75,9 @@ export function createEdgeWeightFunction(mode, overrides = {}) {
     const length = edgeLength(edge)
     if (lambda === 0) return length
     // Route sum 等价于 distance + lambda × cumulative Modelled Exposure Load。
-    return length * (1 + lambda * calculateEdgeHeatExposure(edge, config))
+    const exposure = shadeContext
+      ? calculateShadeAwareHeatExposure(edge, shadeContext, config)
+      : calculateEdgeHeatExposure(edge, config)
+    return length * (1 + lambda * exposure)
   }
 }

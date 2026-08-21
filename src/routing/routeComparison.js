@@ -34,6 +34,21 @@ export function compareRouteToFastest(candidate, fastest) {
   }
 }
 
+export function compareShadeAwareRouteToFastest(candidate, fastest) {
+  const candidateAverage = finiteMetric(candidate, 'shadeAwareAverageHeatExposure')
+  const fastestAverage = finiteMetric(fastest, 'shadeAwareAverageHeatExposure')
+  const candidateLoad = finiteMetric(candidate, 'shadeAwareExposureLoad')
+  const fastestLoad = finiteMetric(fastest, 'shadeAwareExposureLoad')
+  const averageReduction = fastestAverage - candidateAverage
+  const loadReduction = fastestLoad - candidateLoad
+  return {
+    shadeAwareExposureChange: candidateAverage - fastestAverage,
+    shadeAwareExposureReductionPercent: reductionPercent(averageReduction, fastestAverage),
+    shadeAwareLoadChange: candidateLoad - fastestLoad,
+    shadeAwareLoadReductionPercent: reductionPercent(loadReduction, fastestLoad),
+  }
+}
+
 export function passesDetourGuard(candidateDistance, fastestDistance, maximumExtraDistanceRatio) {
   if (maximumExtraDistanceRatio === null) return true
   if (

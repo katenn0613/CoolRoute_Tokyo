@@ -32,10 +32,27 @@ describe('useShadeLayer', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(result.current.scenario).toBe('12:00')
     expect(result.current.geoJSON.features[0].properties.shadeScore).toBe(0.5)
+    expect(result.current.routingContext.scenario).toBe('12:00')
+    expect(result.current.routingContext.scoreByEdgeId.get('a:b:0')).toBe(0.5)
 
     act(() => result.current.setScenario('15:00'))
     expect(result.current.geoJSON.features[0].properties.shadeScore).toBe(0.9)
+    expect(result.current.routingContext.scoreByEdgeId.get('a:b:0')).toBe(0.9)
     expect(loadShade).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates a candidate Context without committing the displayed scenario', async () => {
+    const { result } = renderHook(() => useShadeLayer({
+      graph,
+      loadShade: vi.fn().mockResolvedValue(payload),
+    }))
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+
+    const candidate = result.current.createRoutingContext('09:00')
+
+    expect(candidate.scenario).toBe('09:00')
+    expect(candidate.scoreByEdgeId.get('a:b:0')).toBe(0.1)
+    expect(result.current.scenario).toBe('12:00')
   })
 
   it('isolates sidecar load failure from the supplied road graph', async () => {

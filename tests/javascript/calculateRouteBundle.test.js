@@ -22,4 +22,32 @@ describe('M5 three-mode route bundle', () => {
       bundle.routes.fastest.result.edgeSequence.map((edge) => edge.id),
     )
   })
+
+  it('injects Shade only into Balanced/Coolest and keeps comparisons compatible', () => {
+    const graph = createSyntheticRoadGraph()
+    const scoreByEdgeId = new Map([...graph.edges.keys()].map((edgeId) => [
+      edgeId,
+      edgeId === 'a:b:fast' || edgeId === 'b:d:0' ? 1 : 0,
+    ]))
+    const shadeContext = {
+      scenario: '12:00',
+      shadeWeight: 0.25,
+      scoreByEdgeId: { get: (edgeId) => scoreByEdgeId.get(edgeId) },
+    }
+    const base = calculateRouteBundle(graph, 'a', 'd')
+    const shaded = calculateRouteBundle(graph, 'a', 'd', {}, shadeContext)
+
+    expect(shaded.routes.fastest.result.edgeSequence.map((edge) => edge.id)).toEqual(
+      base.routes.fastest.result.edgeSequence.map((edge) => edge.id),
+    )
+    expect(shaded.routes.fastest.result.totalCost).toBe(base.routes.fastest.result.totalCost)
+    expect(shaded.routes.balanced.metrics.shadeScenario).toBe('12:00')
+    expect(shaded.comparisons.balanced).toEqual(
+      expect.objectContaining({ extraDistanceMeters: expect.any(Number) }),
+    )
+    expect(shaded.comparisons.balanced).not.toHaveProperty('shadeAwareExposureChange')
+    expect(shaded.shadeAwareComparisons.balanced).toEqual(
+      expect.objectContaining({ shadeAwareExposureChange: expect.any(Number) }),
+    )
+  })
 })

@@ -74,11 +74,27 @@ Water Access Indicator 表示路线沿途各 Edge 对 Drinking Station proximity
 
 地图上的 Heat Exposure Layer 仅将同一 `edgeHeatExposure` 计算结果映射为颜色，不定义新的权重或公式。因此路线成本、路线指标与地图颜色共享同一个模型来源。
 
-## M10 Building Shade
+## M10 / M10.5 Building Shade
 
-Building Shade 是独立的可视化 Sidecar，不进入当前 M5 Heat Exposure Formula 或三种 Routing Cost。Project PLATEAU 建筑高度只使用完整 LOD2、否则整栋完整 LOD1 Geometry 的 `max(Z)-min(Z)`；`measuredHeight` 不参与正式计算。
+Building Shade 保持独立 Sidecar，不写入 `graph.json`。Project PLATEAU 建筑高度只使用完整 LOD2、否则整栋完整 LOD1 Geometry 的 `max(Z)-min(Z)`；`measuredHeight` 不参与正式计算。
 
 固定 `2026-09-23` JST 的 09:00、12:00、15:00 三个场景离线计算太阳几何和建筑表面阴影。每条 Edge 的 `shadeScore(t)` 为 EPSG:6677 道路真实中心线与该场景 Shadow union 的相交长度除以投影道路长度，范围 `[0,1]`。它是道路中心线的模型建筑阴影比例，不是实时日阴、整个人行道遮阴、树荫、实测温度或健康效应。
+
+M5 Base Exposure 保持不变，用于原 Route Metrics 和 M7 Baseline：
+
+```text
+baseHeatExposure = 0.7 × (1-green_score) + 0.3 × water_penalty
+```
+
+M10.5 仅为 Balanced/Coolest Cost 和新增指标计算：
+
+```text
+shadeAwareHeatExposure(t)
+  = 0.75 × baseHeatExposure
+  + 0.25 × (1-shadeScore(t))
+```
+
+`shadeContributionWeight=0.25` 是固定的环境因素贡献比例，不是阴影强度参数。Fastest Cost 不读取 Shade，仍严格使用 `edge.length`；`compareRouteToFastest()` 保持原 M5/M7 结构，Shade-aware 变化由独立 Comparison 输出。
 
 ## Detour Guard
 

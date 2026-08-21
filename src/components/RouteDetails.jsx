@@ -35,6 +35,11 @@ export function RouteDetails({ mode, metrics, comparison }) {
         </div>
         <div><dt>緑の多さ</dt><dd>{formatScore(metrics.greenIndicator)}</dd></div>
         <div><dt>給水スポットへのアクセス</dt><dd>{formatScore(metrics.waterAccessIndicator)}</dd></div>
+        <div><dt>平均建物日陰スコア</dt><dd>{formatScore(metrics.averageBuildingShadeScore)}</dd></div>
+        <div>
+          <dt>日陰反映後の暑さ曝露スコア</dt>
+          <dd>{formatScore(metrics.shadeAwareAverageHeatExposure)}</dd>
+        </div>
       </dl>
       {!isFastest && (
         <div className="tradeoff-summary">

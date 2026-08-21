@@ -2,7 +2,7 @@
 
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
-> **项目状态：** M0–M8 与 M10 已完成，M9 Weather 已取消。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model、90 组确定性分层 OD 路线评价，以及 Project PLATEAU 建筑阴影的三个离线场景。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。
+> **项目状态：** M0–M8、M10 与 M10.5 已完成，M9 Weather 已取消。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model、90 组确定性分层 OD 基线评价，以及参与 Balanced/Coolest Cost 的 Project PLATEAU 建筑阴影三个离线场景。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。
 
 ## Live Demo
 
@@ -190,13 +190,20 @@ M8 通过 GitHub 官方 Pages Artifact Workflow 部署 `main` 的正式静态构
 
 M10 使用 Project PLATEAU 千代田区 2023 官方 CityGML，在离线 Python 流水线中解析 14 个当前 Demo 影响范围网格。建筑高度只来自整栋完整 LOD2 Geometry 的有效 Z Range；LOD2 不完整时整栋回退 LOD1，`measuredHeight` 仅用于 QA，不参与阴影计算。
 
-流水线固定秋分日 `2026-09-23` JST 的 09:00、12:00、15:00 三个场景，使用确定性太阳几何、建筑表面投影与 EPSG:6677 道路中心线相交比例，为全部 16,046 条 Edge 生成独立的 [shade.json](public/data/shade.json)。浏览器只读取该轻量 Sidecar；不解析 CityGML、不实时计算太阳阴影，也不修改 `graph.json`、Routing、Green/Water 或 M5 Exposure Formula。该图层表示“建物による推定日陰”，不是实测阴影、树荫、温度或医疗风险。
+流水线固定秋分日 `2026-09-23` JST 的 09:00、12:00、15:00 三个场景，使用确定性太阳几何、建筑表面投影与 EPSG:6677 道路中心线相交比例，为全部 16,046 条 Edge 生成独立的 [shade.json](public/data/shade.json)。浏览器只读取该轻量 Sidecar；不解析 CityGML、不实时计算太阳阴影，也不修改 `graph.json`、Green/Water 或 M5 Base Exposure Formula。该图层表示“建物による推定日陰”，不是实测阴影、树荫、温度或医疗风险。
+
+## M10.5 Shade-aware Routing
+
+M10.5 保留 M5 Base Exposure `0.7 × (1-green_score) + 0.3 × water_penalty`，并为 Balanced/Coolest 增加独立的 Shade-aware Exposure：`0.75 × baseHeatExposure + 0.25 × (1-shade_score)`。`shadeContributionWeight=0.25` 是固定的环境因素贡献比例，不进行运行时调参或自动搜索。Fastest Cost 仍严格等于道路长度。
+
+用户选择 09:00、12:00 或 15:00 时，地图和 Route Cost 使用同一个不可变 Shade Context 并重新计算 Balanced/Coolest。原 M5 Route Metrics、M7 Baseline、`compareRouteToFastest()`、`graph.json` 和 Graph Schema 1.1.0 均保持不变；新增指标只显示平均建筑阴影与日阴反映后的模型热暴露评分。
 
 ## 后续里程碑
 
 - **M8 — Production Deployment：** 已完成 GitHub Pages 正式部署、Subpath QA 和 Workflow 加固；
 - **M9 — Weather：** 已取消作为 Production Feature，仅保留为 Future Work；
 - **M10 — Building Shade Prototype：** 已完成当前 Demo Area 秋分日 09:00、12:00、15:00 三个离散场景的离线预计算与静态图层；
+- **M10.5 — Shade-aware Routing：** 固定 25% Building Shade 环境贡献，让三个离散场景参与 Balanced/Coolest 浏览器端寻路；
 - **M11 — Tokyo Scale Expansion：** 使用增量区域切片管线扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
 
 M8–M11 不改变当前核心原则：Raw GIS 只用于离线处理，浏览器只读取轻量静态数据，正式应用不依赖线上后端。

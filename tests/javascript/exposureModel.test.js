@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ROUTING_MODES,
   calculateEdgeHeatExposure,
+  calculateShadeAwareHeatExposure,
   createEdgeWeightFunction,
 } from '../../src/routing/exposureModel.js'
 
@@ -37,5 +38,42 @@ describe('M5 Edge Heat Exposure 与 Cost Model', () => {
     ['out of range', { water_penalty: 1.1 }],
   ])('rejects %s environment input without fallback', (_name, overrides) => {
     expect(() => calculateEdgeHeatExposure(edge(overrides))).toThrow(/green_score|water_penalty/)
+  })
+})
+
+describe('M10.5 Shade-aware Heat Exposure', () => {
+  const shadeContext = {
+    scenario: '12:00',
+    shadeWeight: 0.25,
+    scoreByEdgeId: { get: (edgeId) => edgeId === 'edge' ? 0.8 : undefined },
+  }
+
+  it('组合原 Base Exposure 与 Building Shade', () => {
+    const base = calculateEdgeHeatExposure(edge())
+    expect(calculateShadeAwareHeatExposure(edge(), shadeContext))
+      .toBeCloseTo(0.75 * base + 0.25 * 0.2)
+    expect(calculateEdgeHeatExposure(edge())).toBeCloseTo(0.41)
+  })
+
+  it('Fastest 不读取 Shade Context', () => {
+    const throwingContext = {
+      scoreByEdgeId: { get: () => { throw new Error('Fastest must not read Shade') } },
+    }
+    expect(createEdgeWeightFunction(ROUTING_MODES.FASTEST, {}, throwingContext)(edge())).toBe(100)
+  })
+
+  it('Balanced 和 Coolest 使用 Shade-aware Exposure', () => {
+    const exposure = calculateShadeAwareHeatExposure(edge(), shadeContext)
+    expect(createEdgeWeightFunction(ROUTING_MODES.BALANCED, {}, shadeContext)(edge()))
+      .toBeCloseTo(100 * (1 + exposure))
+    expect(createEdgeWeightFunction(ROUTING_MODES.COOLEST, {}, shadeContext)(edge()))
+      .toBeCloseTo(100 * (1 + 3 * exposure))
+  })
+
+  it('缺失 Shade Score 明确失败且不产生 NaN', () => {
+    expect(() => calculateShadeAwareHeatExposure(
+      edge({ id: 'missing' }),
+      shadeContext,
+    )).toThrow(/missing/)
   })
 })

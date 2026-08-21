@@ -16,6 +16,7 @@ export function RouteControls({ routingState }) {
     metrics,
     routes,
     comparisons,
+    routingEnvironmentStatus,
     selectedMode = 'balanced',
     phase,
     prompt,
@@ -44,6 +45,11 @@ export function RouteControls({ routingState }) {
 
       <p aria-live="polite" className="selection-prompt">{prompt}</p>
       {error && <p className="routing-error" role="alert">{error}</p>}
+      {routingEnvironmentStatus === 'base-only' && (
+        <p className="routing-error" role="status">
+          日陰データを利用できないため、緑・給水のみで計算しています
+        </p>
+      )}
 
       <fieldset className="route-cards" disabled={isCalculating}>
         <legend>比較するルート</legend>

@@ -28,4 +28,33 @@ describe('M5 Route Exposure Metrics', () => {
       waterAccessIndicator: 0,
     })
   })
+
+  it('keeps Shade-aware fields null without a valid Shade Context', () => {
+    expect(calculateRouteMetrics([edge(100, 0.5, 0.2)])).toMatchObject({
+      averageBuildingShadeScore: null,
+      shadeAwareAverageHeatExposure: null,
+      shadeAwareExposureLoad: null,
+      modelledUnshadedDistance: null,
+      shadeScenario: null,
+    })
+  })
+
+  it('calculates distance-weighted Building Shade and Shade-aware exposure separately', () => {
+    const edges = [edge(100, 0, 1), edge(300, 1, 0)]
+    const shadeContext = {
+      scenario: '09:00',
+      shadeWeight: 0.25,
+      scoreByEdgeId: {
+        get: (edgeId) => edgeId === edges[0].id ? 0 : 1,
+      },
+    }
+    const metrics = calculateRouteMetrics(edges, 2, shadeContext)
+
+    expect(metrics.averageBuildingShadeScore).toBeCloseTo(0.75)
+    expect(metrics.modelledUnshadedDistance).toBeCloseTo(100)
+    expect(metrics.shadeAwareExposureLoad).toBeCloseTo(100)
+    expect(metrics.shadeAwareAverageHeatExposure).toBeCloseTo(0.25)
+    expect(metrics.shadeScenario).toBe('09:00')
+    expect(metrics.averageHeatExposure).toBeCloseTo(0.25)
+  })
 })
