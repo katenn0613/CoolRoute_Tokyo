@@ -47,7 +47,7 @@ def build_shade_payload(
     return {
         "metadata": {
             "schemaVersion": "1.0.0",
-            "dataset": "Project PLATEAU Chiyoda-ku 2023",
+            "dataset": source_metadata.get("dataset", "Project PLATEAU Chiyoda-ku 2023"),
             "provider": "国土交通省 Project PLATEAU",
             "sourceDatasetId": source_metadata.get("datasetId"),
             "generatedAt": generated_at,

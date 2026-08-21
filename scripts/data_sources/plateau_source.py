@@ -9,6 +9,7 @@ import binascii
 import json
 import os
 from pathlib import Path
+import re
 import ssl
 import struct
 import zlib
@@ -76,10 +77,37 @@ class RemoteZipReader:
         marker = tail.rfind(b"PK\x05\x06")
         if marker < 0 or marker + 22 > len(tail):
             raise SourceNotAvailableError("PLATEAU ZIP 缺少有效 EOCD。")
-        (_signature, _disk, _central_disk, _disk_entries, total_entries,
+        (_signature, disk, central_disk, _disk_entries, total_entries,
          central_size, central_offset, _comment_length) = struct.unpack_from(
             "<4s4H2LH", tail, marker
         )
+        if disk != 0 or central_disk != 0:
+            raise SourceNotAvailableError("PLATEAU ZIP 不支持多磁盘归档。")
+        if (
+            total_entries == 0xFFFF
+            or central_size == 0xFFFFFFFF
+            or central_offset == 0xFFFFFFFF
+        ):
+            eocd_offset = tail_start + marker
+            if eocd_offset < 20:
+                raise SourceNotAvailableError("PLATEAU ZIP64 缺少 EOCD Locator。")
+            locator = self.read_range(eocd_offset - 20, eocd_offset - 1)
+            if locator[:4] != b"PK\x06\x07":
+                raise SourceNotAvailableError("PLATEAU ZIP64 缺少有效 EOCD Locator。")
+            (_locator_signature, zip64_disk, zip64_offset, total_disks) = struct.unpack(
+                "<4sLQL", locator
+            )
+            if zip64_disk != 0 or total_disks != 1:
+                raise SourceNotAvailableError("PLATEAU ZIP64 不支持多磁盘归档。")
+            zip64 = self.read_range(zip64_offset, zip64_offset + 55)
+            if zip64[:4] != b"PK\x06\x06":
+                raise SourceNotAvailableError("PLATEAU ZIP64 EOCD 损坏。")
+            (_zip64_signature, _record_size, _made_by, _needed, disk, central_disk,
+             _disk_entries, total_entries, central_size, central_offset) = struct.unpack(
+                "<4sQ2H2L4Q", zip64
+            )
+            if disk != 0 or central_disk != 0:
+                raise SourceNotAvailableError("PLATEAU ZIP64 不支持多磁盘归档。")
         central = self.read_range(central_offset, central_offset + central_size - 1)
         records: dict[str, _ZipRecord] = {}
         cursor = 0
@@ -93,6 +121,43 @@ class RemoteZipReader:
             local_header_offset = values[16]
             name_start = cursor + 46
             name_bytes = central[name_start : name_start + name_length]
+            extra_start = name_start + name_length
+            extra = central[extra_start : extra_start + extra_length]
+            if (
+                uncompressed_size == 0xFFFFFFFF
+                or compressed_size == 0xFFFFFFFF
+                or local_header_offset == 0xFFFFFFFF
+            ):
+                zip64_values: tuple[int, ...] | None = None
+                extra_cursor = 0
+                while extra_cursor + 4 <= len(extra):
+                    header_id, data_size = struct.unpack_from("<HH", extra, extra_cursor)
+                    data_start = extra_cursor + 4
+                    data_end = data_start + data_size
+                    if data_end > len(extra):
+                        raise SourceNotAvailableError("PLATEAU ZIP64 Extra Field 损坏。")
+                    if header_id == 0x0001:
+                        if data_size % 8:
+                            raise SourceNotAvailableError("PLATEAU ZIP64 Extra Field 长度无效。")
+                        zip64_values = struct.unpack(
+                            f"<{data_size // 8}Q", extra[data_start:data_end]
+                        )
+                        break
+                    extra_cursor = data_end
+                if zip64_values is None:
+                    raise SourceNotAvailableError("PLATEAU ZIP Entry 缺少 ZIP64 Extra Field。")
+                values = iter(zip64_values)
+                try:
+                    if uncompressed_size == 0xFFFFFFFF:
+                        uncompressed_size = next(values)
+                    if compressed_size == 0xFFFFFFFF:
+                        compressed_size = next(values)
+                    if local_header_offset == 0xFFFFFFFF:
+                        local_header_offset = next(values)
+                except StopIteration as error:
+                    raise SourceNotAvailableError(
+                        "PLATEAU ZIP64 Extra Field 缺少必需值。"
+                    ) from error
             encoding = "utf-8" if flags & 0x800 else "cp437"
             path = name_bytes.decode(encoding)
             records[path] = _ZipRecord(
@@ -135,6 +200,11 @@ class RemoteZipReader:
             raise SourceNotAvailableError(f"PLATEAU ZIP Entry CRC 校验失败：{path}")
         return content
 
+    def list_records(self) -> tuple[_ZipRecord, ...]:
+        """返回 Central Directory 中的确定性 Entry 清单，不读取 Entry 内容。"""
+
+        return tuple(self._index()[path] for path in sorted(self._index()))
+
 
 def _mesh_bounds(mesh_id: str) -> tuple[float, float, float, float]:
     if len(mesh_id) != 8 or not mesh_id.isdigit():
@@ -145,6 +215,18 @@ def _mesh_bounds(mesh_id: str) -> tuple[float, float, float, float]:
     south = first_lat / 1.5 + second_lat * (5 / 60) + third_lat * (30 / 3600)
     west = 100 + first_lon + second_lon * (7.5 / 60) + third_lon * (45 / 3600)
     return (west, south, west + 45 / 3600, south + 30 / 3600)
+
+
+def mesh_bounds(mesh_id: str) -> tuple[float, float, float, float]:
+    """返回日本第三次地域区划 Mesh 的 EPSG:4326 边界。"""
+
+    return _mesh_bounds(mesh_id)
+
+
+def is_building_entry_path(path: str) -> bool:
+    return bool(
+        re.search(r"(?:^|/)udx/bldg/[^/]+_bldg_6697(?:_2)?_op\.gml$", path)
+    )
 
 
 _OFFICIAL_BUILDING_ENTRY_SIZES = (
@@ -243,6 +325,7 @@ class PlateauSource(BaseDataSource):
         entries: Iterable[PlateauEntry] = (),
         raw_directory: str | Path = "data/raw/plateau/",
         entry_fetcher: EntryFetcher = _missing_entry_fetcher,
+        archive_url: str = PLATEAU_ARCHIVE_URL,
     ) -> None:
         raw_path = Path(raw_directory)
         super().__init__(
@@ -262,6 +345,7 @@ class PlateauSource(BaseDataSource):
         )
         self.entries = tuple(entries)
         self.entry_fetcher = entry_fetcher
+        self.archive_url = archive_url
 
     def plan_entries(
         self,
@@ -272,8 +356,7 @@ class PlateauSource(BaseDataSource):
                 (
                     entry
                     for entry in self.entries
-                    if "/bldg/" in f"/{entry.archive_path.lstrip('/')}"
-                    and entry.archive_path.endswith("_bldg_6697_op.gml")
+                    if is_building_entry_path(entry.archive_path)
                     and _bounds_intersect(entry.bounds, graph_bounds)
                 ),
                 key=lambda entry: (entry.mesh_id, entry.archive_path),
@@ -294,7 +377,7 @@ class PlateauSource(BaseDataSource):
                 continue
 
             try:
-                content = self.entry_fetcher(PLATEAU_ARCHIVE_URL, entry.archive_path)
+                content = self.entry_fetcher(self.archive_url, entry.archive_path)
             except SourceNotAvailableError:
                 raise
             except Exception as error:
@@ -326,7 +409,7 @@ class PlateauSource(BaseDataSource):
         metadata = {
             "datasetId": entry.dataset_id,
             "provider": "国土交通省 Project PLATEAU",
-            "sourceArchiveUrl": PLATEAU_ARCHIVE_URL,
+            "sourceArchiveUrl": self.archive_url,
             "archiveEntry": entry.archive_path,
             "meshId": entry.mesh_id,
             "retrievedAt": retrieved_at,

@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from io import BytesIO
+import binascii
 import json
+import struct
 import unittest
 import zipfile
 
@@ -100,6 +102,27 @@ class PlateauSourceTests(unittest.TestCase):
         self.assertEqual(metadata["archiveEntry"], "udx/bldg/inside_bldg_6697_op.gml")
         self.assertEqual(metadata["sizeBytes"], 55)
 
+    def test_fetch_entries_uses_the_configured_official_archive(self):
+        calls: list[tuple[str, str]] = []
+
+        def fetcher(archive_url: str, archive_path: str) -> bytes:
+            calls.append((archive_url, archive_path))
+            return b"official Tokyo23 bytes"
+
+        source = PlateauSource(
+            entries=self.entries,
+            raw_directory=self.raw_directory,
+            entry_fetcher=fetcher,
+            archive_url="https://example.invalid/official-tokyo23.zip",
+        )
+
+        source.fetch_entries((self.entries[0],))
+
+        self.assertEqual(calls, [(
+            "https://example.invalid/official-tokyo23.zip",
+            "udx/bldg/inside_bldg_6697_op.gml",
+        )])
+
     def test_failed_forced_fetch_keeps_previous_raw_file(self):
         source = PlateauSource(
             entries=self.entries,
@@ -140,6 +163,38 @@ class PlateauSourceTests(unittest.TestCase):
 
         self.assertEqual(reader.read_entry("udx/bldg/second.gml"), b"second official bytes")
         self.assertLess(sum(end - start + 1 for start, end in requested_ranges), len(payload) * 2)
+
+    def test_remote_zip_reader_supports_zip64_directory_and_entry_offsets(self):
+        name = b"udx/bldg/53394500_bldg_6697_op.gml"
+        content = b"official Tokyo23 CityGML fixture"
+        checksum = binascii.crc32(content) & 0xFFFFFFFF
+        local = struct.pack(
+            "<4s5H3L2H", b"PK\x03\x04", 45, 0, 0, 0, 0,
+            checksum, len(content), len(content), len(name), 0,
+        ) + name + content
+        zip64_extra = struct.pack("<HHQQQ", 0x0001, 24, len(content), len(content), 0)
+        central = struct.pack(
+            "<4s6H3L5H2L", b"PK\x01\x02", 45, 45, 0, 0, 0, 0,
+            checksum, 0xFFFFFFFF, 0xFFFFFFFF, len(name), len(zip64_extra), 0,
+            0, 0, 0, 0xFFFFFFFF,
+        ) + name + zip64_extra
+        central_offset = len(local)
+        zip64_eocd_offset = central_offset + len(central)
+        zip64_eocd = struct.pack(
+            "<4sQ2H2L4Q", b"PK\x06\x06", 44, 45, 45, 0, 0,
+            1, 1, len(central), central_offset,
+        )
+        locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, zip64_eocd_offset, 1)
+        eocd = struct.pack(
+            "<4s4H2LH", b"PK\x05\x06", 0, 0, 0xFFFF, 0xFFFF,
+            0xFFFFFFFF, 0xFFFFFFFF, 0,
+        )
+        payload = local + central + zip64_eocd + locator + eocd
+
+        reader = RemoteZipReader(len(payload), lambda start, end: payload[start:end + 1])
+
+        self.assertEqual(reader.read_entry(name.decode()), content)
+        self.assertEqual(tuple(record.path for record in reader.list_records()), (name.decode(),))
 
     def test_official_manifest_contains_demo_area_building_meshes(self):
         planned = PlateauSource(entries=official_plateau_entries()).plan_entries(

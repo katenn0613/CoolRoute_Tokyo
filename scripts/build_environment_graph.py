@@ -70,17 +70,17 @@ def _validate_provenance_chain(inspection: dict) -> None:
             raise ValueError(f"Green Raw → Extraction provenance 断裂：{archive['archive']}")
 
 
-def _prepare_cache(fingerprint: str):
+def _prepare_cache(fingerprint: str, cache_prefix: str = "demo"):
     manifest = Path("data/processed/green/cache_manifest.json")
     current = json.loads(manifest.read_text()) if manifest.exists() else {}
     if current.get("fingerprint") != fingerprint:
-        Path("data/processed/green/demo_green_whitelist.gpkg").unlink(missing_ok=True)
-        Path("data/processed/green/demo_green_fragments_100m.gpkg").unlink(missing_ok=True)
+        Path(f"data/processed/green/{cache_prefix}_green_whitelist.gpkg").unlink(missing_ok=True)
+        Path(f"data/processed/green/{cache_prefix}_green_fragments_100m.gpkg").unlink(missing_ok=True)
     return manifest
 
 
-def _load_green_polygons(inspection: dict, edge_frame: gpd.GeoDataFrame):
-    cache_path = Path("data/processed/green/demo_green_whitelist.gpkg")
+def _load_green_polygons(inspection: dict, edge_frame: gpd.GeoDataFrame, cache_prefix: str = "demo"):
+    cache_path = Path(f"data/processed/green/{cache_prefix}_green_whitelist.gpkg")
     if cache_path.exists():
         cached = gpd.read_file(cache_path).to_crs(ENVIRONMENT_CONFIG.projected_crs)
         return list(cached.geometry), [{"cache": str(cache_path), "loadedFeatureCount": len(cached)}]
@@ -140,8 +140,8 @@ def _load_stations(path: Path):
     return geo, geo.to_crs(ENVIRONMENT_CONFIG.projected_crs)
 
 
-def _load_or_build_green_fragments(polygons, bounds):
-    cache_path = Path("data/processed/green/demo_green_fragments_100m.gpkg")
+def _load_or_build_green_fragments(polygons, bounds, cache_prefix: str = "demo"):
+    cache_path = Path(f"data/processed/green/{cache_prefix}_green_fragments_100m.gpkg")
     if cache_path.exists():
         return list(gpd.read_file(cache_path).geometry)
     min_x, min_y, max_x, max_y = bounds
@@ -229,7 +229,15 @@ def _graph_invariants(graph: dict):
     }
 
 
-def build(baseline_path: Path, inspection_path: Path, station_path: Path, output_dir: Path):
+def build(
+    baseline_path: Path,
+    inspection_path: Path,
+    station_path: Path,
+    output_dir: Path,
+    *,
+    area_path: Path = Path("config/demo_area.json"),
+    cache_prefix: str = "demo",
+):
     baseline_bytes = baseline_path.read_bytes()
     graph = json.loads(baseline_bytes)
     if graph["metadata"].get("graphVersion") != "1.0.0":
@@ -245,11 +253,13 @@ def build(baseline_path: Path, inspection_path: Path, station_path: Path, output
     ).to_crs(ENVIRONMENT_CONFIG.projected_crs)
     print(f"[M4] projected edges: {len(edge_geo)}", file=sys.stderr, flush=True)
     cache_fingerprint = _cache_fingerprint(inspection, edge_geo)
-    cache_manifest = _prepare_cache(cache_fingerprint)
-    green_polygons, green_layer_stats = _load_green_polygons(inspection, edge_geo)
+    cache_manifest = _prepare_cache(cache_fingerprint, cache_prefix)
+    green_polygons, green_layer_stats = _load_green_polygons(inspection, edge_geo, cache_prefix)
     print(f"[M4] local green polygons: {len(green_polygons)}", file=sys.stderr, flush=True)
     green_polygons = _load_or_build_green_fragments(
-        green_polygons, box(*edge_geo.total_bounds).buffer(ENVIRONMENT_CONFIG.green_buffer_meters).bounds
+        green_polygons,
+        box(*edge_geo.total_bounds).buffer(ENVIRONMENT_CONFIG.green_buffer_meters).bounds,
+        cache_prefix,
     )
     print(f"[M4] exact 100m green fragments: {len(green_polygons)}", file=sys.stderr, flush=True)
     green_array = np.asarray(green_polygons, dtype=object)
@@ -316,7 +326,7 @@ def build(baseline_path: Path, inspection_path: Path, station_path: Path, output
     if not all(math.isfinite(value) and value >= 0 for value in distances):
         raise ValueError("nearest_drinking_station_m 无效。")
 
-    west, south, east, north = load_demo_area().bounding_box
+    west, south, east, north = load_demo_area(area_path).bounding_box
     local_stations = stations_wgs84.cx[west:east, south:north]
     station_features = []
     for _, row in local_stations.iterrows():
@@ -408,8 +418,13 @@ def main():
     parser.add_argument("--inspection", type=Path, default=Path("data/processed/environment/schema_inspection.json"))
     parser.add_argument("--stations", type=Path, default=Path("data/raw/drinking_station/tokyowaterdrinkingstation_250917.csv"))
     parser.add_argument("--output-dir", type=Path, default=Path("public/data"))
+    parser.add_argument("--area", type=Path, default=Path("config/demo_area.json"))
+    parser.add_argument("--cache-prefix", default="demo")
     args = parser.parse_args()
-    print(json.dumps(build(args.baseline, args.inspection, args.stations, args.output_dir), ensure_ascii=False, indent=2))
+    print(json.dumps(build(
+        args.baseline, args.inspection, args.stations, args.output_dir,
+        area_path=args.area, cache_prefix=args.cache_prefix,
+    ), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
