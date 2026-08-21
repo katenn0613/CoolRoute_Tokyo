@@ -2,7 +2,7 @@
 
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
-> **项目状态：** M0–M8 已完成。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model，以及 90 组确定性分层 OD 路线评价。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。
+> **项目状态：** M0–M8 与 M10 已完成，M9 Weather 已取消。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model、90 组确定性分层 OD 路线评价，以及 Project PLATEAU 建筑阴影的三个离线场景。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。
 
 ## Live Demo
 
@@ -107,7 +107,7 @@ npm run evaluate:routes
 
 禁止伪造东京官方开放数据。每个已接入数据集都必须保留来源、已知许可证和覆盖范围信息。如果所需的真实数据源无法获取，应用必须暴露数据适配器的缺失状态，不得虚构数值或将占位内容标记为官方数据。
 
-六个数据源的许可证、获取状态、路径和限制见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)。OpenStreetMap、M4 Green GIS 和 Drinking Station 均为 `ready`，其他数据为 `not_started`。
+六个数据源的许可证、获取状态、路径和限制见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)。OpenStreetMap、M4 Green GIS、Drinking Station 与 M10 Project PLATEAU 均为 `ready`；Weather 不进入 Production。
 
 只有在清楚标记且与真实 Demo 数据分离时，测试 fixture 才可以是合成数据。
 
@@ -186,11 +186,17 @@ M8 通过 GitHub 官方 Pages Artifact Workflow 部署 `main` 的正式静态构
 
 `dist/` 不进入 Git History，也不创建 `gh-pages` Branch。Production Runtime 仍然只是 GitHub Pages 托管的 HTML、JavaScript、CSS 和轻量静态数据，没有线上后端。设计与验收边界见 [M8 规格](docs/superpowers/specs/2026-08-21-m8-production-deployment-design.md)。
 
+## M10 Building Shade Prototype
+
+M10 使用 Project PLATEAU 千代田区 2023 官方 CityGML，在离线 Python 流水线中解析 14 个当前 Demo 影响范围网格。建筑高度只来自整栋完整 LOD2 Geometry 的有效 Z Range；LOD2 不完整时整栋回退 LOD1，`measuredHeight` 仅用于 QA，不参与阴影计算。
+
+流水线固定秋分日 `2026-09-23` JST 的 09:00、12:00、15:00 三个场景，使用确定性太阳几何、建筑表面投影与 EPSG:6677 道路中心线相交比例，为全部 16,046 条 Edge 生成独立的 [shade.json](public/data/shade.json)。浏览器只读取该轻量 Sidecar；不解析 CityGML、不实时计算太阳阴影，也不修改 `graph.json`、Routing、Green/Water 或 M5 Exposure Formula。该图层表示“建物による推定日陰”，不是实测阴影、树荫、温度或医疗风险。
+
 ## 后续里程碑
 
 - **M8 — Production Deployment：** 已完成 GitHub Pages 正式部署、Subpath QA 和 Workflow 加固；
 - **M9 — Weather：** 已取消作为 Production Feature，仅保留为 Future Work；
-- **M10 — Building Shade Prototype：** 仅处理当前 Demo Area，以秋分日 09:00、12:00、15:00 三个离散场景进行离线预计算；
+- **M10 — Building Shade Prototype：** 已完成当前 Demo Area 秋分日 09:00、12:00、15:00 三个离散场景的离线预计算与静态图层；
 - **M11 — Tokyo Scale Expansion：** 使用增量区域切片管线扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
 
 M8–M11 不改变当前核心原则：Raw GIS 只用于离线处理，浏览器只读取轻量静态数据，正式应用不依赖线上后端。

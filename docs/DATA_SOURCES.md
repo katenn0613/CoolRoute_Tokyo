@@ -11,6 +11,7 @@ M8 将浏览器所需的轻量数据随 GitHub Pages Artifact 发布：
 - Road Graph: <https://katenn0613.github.io/CoolRoute_Tokyo/data/graph.json>
 - Environment Metadata: <https://katenn0613.github.io/CoolRoute_Tokyo/data/environment_metadata.json>
 - Drinking Stations: <https://katenn0613.github.io/CoolRoute_Tokyo/data/drinking_stations.geojson>
+- Building Shade: <https://katenn0613.github.io/CoolRoute_Tokyo/data/shade.json>
 
 Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefile、CSV、GeoPackage 及其他 Raw GIS 只用于离线预处理，不进入 Pages Runtime。
 
@@ -22,7 +23,7 @@ Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefi
 | 緑のオープンデータ（GISデータ） | 东京都都市整备局 | P0 | `ready` | `data/raw/green/` |
 | Tokyowater Drinking Station | 东京都水道局 | P1 | `ready` | `data/raw/drinking_station/` |
 | Tokyo Street Trees | 东京都建设局 | P2 | `not_started` | `data/raw/trees/` |
-| Project PLATEAU 3D Buildings | 国土交通省 | P2 | `not_started` | `data/raw/plateau/` |
+| Project PLATEAU 3D Buildings | 国土交通省 | P2 | `ready` | `data/raw/plateau/` |
 | JMA Weather Data | 日本气象厅 | Future Work | `not_started` | `data/raw/weather/` |
 
 ## 1. OpenStreetMap Walking Network
@@ -102,14 +103,17 @@ M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式
 ## 5. Project PLATEAU 3D Buildings
 
 - **发布机构：** 国土交通省
-- **官方来源：** <https://www.mlit.go.jp/plateau/>
-- **用途：** 未来 building footprint、building height、solar position、shadow polygon 和 `shade_score`
-- **获取方式：** M1 只登记，不下载
-- **文件格式 / License：** 尚未针对具体东京资源核验
-- **本地位置：** Raw `data/raw/plateau/`；Processed `data/processed/environment/`
-- **处理方法：** 尚未实施
-- **当前状态：** `not_started`，P2
-- **已知限制：** 禁止下载整个东京 PLATEAU 数据。
+- **官方来源：** [PLATEAU 千代田区 2023](https://www.geospatial.jp/ckan/dataset/plateau-13101-chiyoda-ku-2023)；Dataset ID `plateau-13101-chiyoda-ku-2023`
+- **用途：** 当前 Demo Area 的 Building Geometry Height、固定太阳场景 Shadow Polygon 与道路中心线建筑阴影比例
+- **获取方式：** 2026-08-21 通过 HTTP Range 只提取官方 ZIP 中覆盖 Road Graph 与 500m 影响边界的 14 个 `udx/bldg/*_bldg_6697_op.gml`，不下载或长期保存 1.95GB 完整 ZIP
+- **文件格式 / CRS：** CityGML 2.0，EPSG:6697 XYZ；空间分析转换为 EPSG:6677；Browser Sidecar 为 JSON
+- **License：** CC BY 4.0（Project PLATEAU Open Data；使用时保留国土交通省与具体数据集 attribution）
+- **本地位置：** Raw `data/raw/plateau/`（Git ignored）；报告 `data/processed/shade/`；Browser `public/data/shade.json`
+- **处理方法：** 流式解析 Building/BuildingPart 与必要 Building-local xlink；完整 LOD2 优先，否则整栋完整 LOD1，禁止混合；正式高度为所选 Geometry 的 `max(Z)-min(Z)`，`measuredHeight` 只作 QA；固定 `2026-09-23` JST 09:00/12:00/15:00，以 Meeus/NOAA 太阳几何并采用 NREL SPA 方位角约定投影建筑表面；Shadow union 后扣除全部 Building Footprint；Edge Score 为道路真实中心线与 Shadow 相交长度比例
+- **质量统计：** 14 个 Raw GML；20,870 栋解析建筑；20,865 栋有效；LOD2 18,498 栋；LOD1 回退 2,367 栋；5 栋无完整 LOD；参与道路影响范围计算 12,723 栋；Geometry Height min/median/max 为 0.049/17.592/264.643m
+- **浏览器数据：** Shade Schema `1.0.0`，严格对应 Graph Schema `1.1.0` 的 16,046 个 Edge ID；三个场景均具有非零差异；`shade.json` 不包含 Raw Geometry 或 Shadow Polygon
+- **当前状态：** `ready`，M10 production validation 通过
+- **已知限制：** 仅覆盖当前 Demo Area；阴影为固定日期/时间的模型几何结果，不包含天气、树冠、地形、材质、辐射强度、实际人行道宽度或实时遮阴。异常低高度保留为 Geometry QA 事实，不以猜测值替换。
 
 ## 6. JMA Weather Data
 

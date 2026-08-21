@@ -439,7 +439,7 @@ git commit -m "feat: publish deterministic shade sidecar data"
 - CLI：`python scripts/build_shade_data.py [--stage geometry|shadow|publish] [--force-download] [--no-publish]`
 - `run_pipeline(config, source, graph_path, publish) -> ShadeBuildReport`
 
-- [ ] **步骤 1：写 synthetic 端到端 RED 测试**
+- [x] **步骤 1：写 synthetic 端到端 RED 测试**
 
 ```python
 def test_pipeline_builds_three_scores_without_mutating_graph(tmp_path):
@@ -451,31 +451,31 @@ def test_pipeline_builds_three_scores_without_mutating_graph(tmp_path):
     assert report.scenarios == ("09:00", "12:00", "15:00")
 ```
 
-- [ ] **步骤 2：运行 RED**
+- [x] **步骤 2：运行 RED**
 
 运行：`.venv/bin/python -m unittest tests.python.test_shade_pipeline -v`  
 预期：CLI 编排不存在而失败。
 
-- [ ] **步骤 3：实现薄 CLI 编排和阶段检查点**
+- [x] **步骤 3：实现薄 CLI 编排和阶段检查点**
 
 CLI 只调用前面模块；每阶段写 machine-readable report 到 ignored `data/processed/shade/reports/`。`--no-publish` 禁止触碰 public；A 验证失败不得执行 B，B 失败不得执行 C。
 
-- [ ] **步骤 4：跑 synthetic 端到端测试**
+- [x] **步骤 4：跑 synthetic 端到端测试**
 
 运行：`.venv/bin/python -m unittest tests.python.test_shade_pipeline -v`  
 预期：Graph 深比较不变、三场景、确定性重跑和失败隔离全部 PASS。
 
-- [ ] **步骤 5：执行真实 A→B→C 流水线**
+- [x] **步骤 5：执行真实 A→B→C 流水线**
 
 运行：`.venv/bin/python scripts/build_shade_data.py --stage publish`  
 预期：仅获取所需官方 Mesh；A/B/C 门禁通过；原子生成 `public/data/shade.json`。网络或真实 Geometry 阻塞时明确停止，不用 synthetic production。
 
-- [ ] **步骤 6：执行 Production Validation**
+- [x] **步骤 6：执行 Production Validation**
 
 运行：`.venv/bin/python -m unittest tests.python.test_shade_production -v`  
 验收：官方 source metadata、LOD 质量统计、16,046 个正式 Edge 全覆盖、三值 `[0,1]`、Graph 文件深比较与 M10 前基线相同、两次构建的 `deterministic_payload` 相同。
 
-- [ ] **步骤 7：报告真实数据统计**
+- [x] **步骤 7：报告真实数据统计**
 
 输出 LOD2/LOD1 fallback/invalid 数、Geometry Height min/median/max、三个场景太阳位置、Shadow 总面积、Shade Score min/mean/median/max/std/零值/满值占比、`shade.json` 文件大小和流水线各阶段耗时。
 
@@ -620,25 +620,25 @@ git commit -m "feat: display building shade scenarios"
 - 修改：`src/config/dataSources.js`
 - 修改：`docs/superpowers/plans/2026-08-21-m10-building-shade.md`
 
-- [ ] **步骤 1：只在真实 `shade.json` 发布成功后更新 Registry**
+- [x] **步骤 1：只在真实 `shade.json` 发布成功后更新 Registry**
 
 PLATEAU 状态从 `not_started` 更新为 `ready`；记录数据集 ID、官方 URL、License、LOD 策略、Geometry Z Range、固定场景、Raw/Processed/Public 路径和质量统计。若 production 构建失败，保持非 ready。
 
-- [ ] **步骤 2：写日语方法说明**
+- [x] **步骤 2：写日语方法说明**
 
 统一使用 `建物による推定日陰`，说明这是固定秋分日、道路中心线、PLATEAU Geometry 的模型结果，不是实时阴影、树荫、道路温度或医疗风险。明确 Shade 尚未进入 Routing Cost。
 
-- [ ] **步骤 3：运行 Python 全量测试**
+- [x] **步骤 3：运行 Python 全量测试**
 
 运行：`.venv/bin/python -m unittest discover -s tests/python -v`  
 预期：全部 PASS，包括 production Shade validation 和原有 M2/M4 validation。
 
-- [ ] **步骤 4：运行 JavaScript 全量测试**
+- [x] **步骤 4：运行 JavaScript 全量测试**
 
 运行：`npm test -- --run`  
 预期：全部 PASS；M3/M4/M5/M6/M7/M8 回归不变，切换 Shade 不调用 Route Bundle。
 
-- [ ] **步骤 5：运行 Production Build 与 Pages subpath 验证**
+- [x] **步骤 5：运行 Production Build 与 Pages subpath 验证**
 
 运行：`npm run build`  
 运行：`node scripts/validate_pages_build.mjs --base /CoolRoute_Tokyo/`  
