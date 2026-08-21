@@ -3,14 +3,19 @@ from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
-from shapely.geometry import LineString, Point
+import numpy as np
+from shapely.geometry import LineString, Point, box
 
 from scripts.environment.enrich_edges import (
     calculate_green_score,
     nearest_station_distance,
     water_penalty_for_distance,
 )
-from scripts.build_environment_graph import _atomic_json, _publish_json_transaction
+from scripts.build_environment_graph import (
+    _atomic_json,
+    _covered_areas_by_edge,
+    _publish_json_transaction,
+)
 
 
 class EnvironmentEnrichmentTests(unittest.TestCase):
@@ -21,6 +26,15 @@ class EnvironmentEnrichmentTests(unittest.TestCase):
         road_buffer = self.edge.buffer(15)
         self.assertAlmostEqual(calculate_green_score(self.edge, [road_buffer, road_buffer], 15), 1)
         self.assertEqual(calculate_green_score(self.edge, [], 15), 0)
+
+    def test_vectorized_candidates_are_grouped_once_and_union_overlap(self):
+        covered = _covered_areas_by_edge(
+            edge_count=3,
+            candidate_edge_indices=np.asarray([2, 0, 2]),
+            clipped=np.asarray([box(0, 0, 2, 2), box(0, 0, 1, 1), box(1, 0, 3, 2)], dtype=object),
+        )
+
+        self.assertEqual(covered.tolist(), [1.0, 0.0, 6.0])
 
     def test_station_distance_uses_edge_geometry_not_end_nodes(self):
         self.assertAlmostEqual(nearest_station_distance(self.edge, [Point(50, 10)]), 10)

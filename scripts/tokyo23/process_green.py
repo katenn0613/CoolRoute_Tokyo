@@ -63,6 +63,8 @@ def run(
         raise ValueError("Tokyo23 Graph Schema 不是 1.1.0。")
     _publish(staging, output_directory)
     shutil.rmtree(staging, ignore_errors=True)
+    Path("data/processed/green/tokyo23_green_whitelist.gpkg").unlink(missing_ok=True)
+    Path("data/processed/green/tokyo23_green_fragments_100m.gpkg").unlink(missing_ok=True)
     return {
         "edgeCount": graph["metadata"]["edgeCount"],
         "greenValidation": metadata["quality"]["validationResult"],

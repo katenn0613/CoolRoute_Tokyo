@@ -1,8 +1,9 @@
 import unittest
 
 import networkx as nx
+from shapely.geometry import MultiPolygon, Polygon
 
-from scripts.tokyo23.process_road import combine_ward_graphs
+from scripts.tokyo23.process_road import boundary_from_overpass_payload, combine_ward_graphs
 
 
 def graph(edges):
@@ -23,6 +24,31 @@ class Tokyo23RoadTests(unittest.TestCase):
 
         self.assertEqual(merged.number_of_nodes(), 4)
         self.assertEqual(merged.number_of_edges(), 3)
+
+    def test_overpass_relation_members_form_boundary_polygon(self):
+        payload = {
+            "elements": [{
+                "type": "relation",
+                "members": [{
+                    "type": "way",
+                    "role": "outer",
+                    "geometry": [
+                        {"lon": 139.7, "lat": 35.6},
+                        {"lon": 139.8, "lat": 35.6},
+                        {"lon": 139.8, "lat": 35.7},
+                        {"lon": 139.7, "lat": 35.7},
+                        {"lon": 139.7, "lat": 35.6},
+                    ],
+                }],
+            }],
+        }
+
+        boundary = boundary_from_overpass_payload(payload)
+
+        self.assertIsInstance(boundary, (Polygon, MultiPolygon))
+        self.assertFalse(boundary.is_empty)
+        self.assertAlmostEqual(boundary.bounds[0], 139.7)
+        self.assertAlmostEqual(boundary.bounds[3], 35.7)
 
 
 if __name__ == "__main__":

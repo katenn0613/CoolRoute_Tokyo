@@ -13,6 +13,9 @@ import shutil
 import sys
 import tempfile
 
+from shapely.geometry import Point
+from shapely.strtree import STRtree
+
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -24,7 +27,7 @@ from scripts.data_sources.plateau_source import (
 )
 from scripts.shade.citygml import iter_buildings
 from scripts.shade.config import default_shade_config
-from scripts.shade.edge_scores import calculate_edge_shade_scores, load_graph_edges
+from scripts.shade.edge_scores import ProjectedEdge, load_graph_edges
 from scripts.shade.geometry import BuildingGeometryError, project_building_geometry, select_building_geometry
 from scripts.shade.projection import project_building_shadow
 from scripts.shade.publisher import build_shade_payload, publish_shade_json, validate_shade_payload
@@ -67,7 +70,126 @@ def merge_score_shards(graph_payload: dict, shard_directory: Path) -> dict[str, 
     return scores
 
 
-def _write_shard(path: Path, scores: dict[str, tuple[float, ...]]) -> None:
+def merge_intervals(intervals) -> tuple[tuple[float, float], ...]:
+    ordered = sorted(
+        (float(start), float(end)) if start <= end else (float(end), float(start))
+        for start, end in intervals
+        if not math.isclose(float(start), float(end), abs_tol=1e-9)
+    )
+    merged: list[list[float]] = []
+    for start, end in ordered:
+        if not merged or start > merged[-1][1] + 1e-9:
+            merged.append([start, end])
+        else:
+            merged[-1][1] = max(merged[-1][1], end)
+    return tuple((start, end) for start, end in merged)
+
+
+def subtract_intervals(intervals, exclusions) -> tuple[tuple[float, float], ...]:
+    result = []
+    excluded = merge_intervals(exclusions)
+    for start, end in merge_intervals(intervals):
+        cursor = start
+        for excluded_start, excluded_end in excluded:
+            if excluded_end <= cursor:
+                continue
+            if excluded_start >= end:
+                break
+            if excluded_start > cursor:
+                result.append((cursor, min(excluded_start, end)))
+            cursor = max(cursor, excluded_end)
+            if cursor >= end:
+                break
+        if cursor < end:
+            result.append((cursor, end))
+    return merge_intervals(result)
+
+
+def _line_parts(geometry):
+    if geometry.is_empty:
+        return
+    if geometry.geom_type in ("LineString", "LinearRing"):
+        yield geometry
+        return
+    for part in getattr(geometry, "geoms", ()):
+        yield from _line_parts(part)
+
+
+def _geometry_intervals(edge: ProjectedEdge, mask) -> tuple[tuple[float, float], ...]:
+    intervals = []
+    for line in _line_parts(edge.geometry.intersection(mask)):
+        coordinates = tuple(line.coords)
+        if len(coordinates) < 2:
+            continue
+        start = edge.geometry.project(Point(coordinates[0]))
+        end = edge.geometry.project(Point(coordinates[-1]))
+        intervals.append((start, end))
+    return merge_intervals(intervals)
+
+
+def _interval_records(
+    edges: tuple[ProjectedEdge, ...],
+    edge_tree: STRtree,
+    shadows_by_scenario: dict,
+    footprint,
+    scenarios: tuple[str, ...],
+) -> dict[str, dict]:
+    records: dict[str, dict] = {}
+    for scenario_index, scenario in enumerate(scenarios):
+        shadow = shadows_by_scenario[scenario]
+        for candidate in edge_tree.query(shadow):
+            edge = edges[int(candidate)]
+            intervals = _geometry_intervals(edge, shadow)
+            if not intervals:
+                continue
+            record = records.setdefault(
+                edge.id, {"shadow": [[], [], []], "footprint": []}
+            )
+            record["shadow"][scenario_index] = [list(interval) for interval in intervals]
+    for candidate in edge_tree.query(footprint):
+        edge = edges[int(candidate)]
+        intervals = _geometry_intervals(edge, footprint)
+        if intervals:
+            record = records.setdefault(
+                edge.id, {"shadow": [[], [], []], "footprint": []}
+            )
+            record["footprint"] = [list(interval) for interval in intervals]
+    return records
+
+
+def merge_interval_shards(
+    edges_by_id: dict[str, ProjectedEdge],
+    shard_directory: Path,
+) -> dict[str, tuple[float, ...]]:
+    shadow_intervals = {
+        edge_id: [[], [], []] for edge_id in edges_by_id
+    }
+    footprint_intervals = {edge_id: [] for edge_id in edges_by_id}
+    for path in sorted(Path(shard_directory).glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for edge_id, record in payload.items():
+            if edge_id not in edges_by_id:
+                raise ValueError(f"Shade interval shard 包含未知 Edge：{edge_id}")
+            for index, values in enumerate(record.get("shadow", ())):
+                shadow_intervals[edge_id][index].extend(values)
+            footprint_intervals[edge_id].extend(record.get("footprint", ()))
+    scores = {}
+    for edge_id, edge in edges_by_id.items():
+        if not math.isfinite(edge.projected_length) or edge.projected_length <= 0:
+            raise ValueError(f"Edge {edge_id} 投影长度无效。")
+        footprint = merge_intervals(footprint_intervals[edge_id])
+        values = []
+        for intervals in shadow_intervals[edge_id]:
+            shaded = subtract_intervals(intervals, footprint)
+            ratio = sum(end - start for start, end in shaded) / edge.projected_length
+            if not math.isfinite(ratio) or ratio < -1e-9 or ratio > 1 + 1e-9:
+                raise ValueError(f"Edge {edge_id} Shade interval 结果无效：{ratio}")
+            values.append(min(1.0, max(0.0, ratio)))
+        scores[edge_id] = tuple(values)
+    return scores
+
+
+def _write_shard(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", dir=path.parent,
@@ -75,7 +197,7 @@ def _write_shard(path: Path, scores: dict[str, tuple[float, ...]]) -> None:
     )
     temporary = Path(handle.name)
     try:
-        json.dump({edge_id: list(values) for edge_id, values in scores.items()}, handle, separators=(",", ":"))
+        json.dump(payload, handle, separators=(",", ":"))
         handle.close()
         json.loads(temporary.read_text(encoding="utf-8"))
         os.replace(temporary, path)
@@ -112,16 +234,9 @@ def run(
 ) -> dict:
     tokyo = load_tokyo23_config()
     graph_payload = json.loads(graph_path.read_text(encoding="utf-8"))
-    graph_edges = graph_payload.get("edges", ())
-    projected_edges = {edge.id: edge for edge in load_graph_edges(graph_path, "EPSG:6677")}
-    groups: dict[str, list[str]] = {}
-    lonlat_edges: dict[str, list[list[float]]] = {}
-    for edge in graph_edges:
-        geometry = edge["geometry"]
-        midpoint = geometry[len(geometry) // 2]
-        mesh_id = mesh_id_for_point(float(midpoint[0]), float(midpoint[1]))
-        groups.setdefault(mesh_id, []).append(edge["id"])
-        lonlat_edges[edge["id"]] = geometry
+    projected_edge_tuple = load_graph_edges(graph_path, "EPSG:6677")
+    projected_edges = {edge.id: edge for edge in projected_edge_tuple}
+    edge_tree = STRtree(tuple(edge.geometry for edge in projected_edge_tuple))
 
     entries = _manifest_entries(manifest_path)
     raw_directory = Path("data/raw/plateau_tokyo23")
@@ -140,76 +255,65 @@ def run(
     )
     solar_positions = build_solar_scenarios(config, tokyo.center)
     state_directory = Path("data/processed/tokyo23/shade_state")
-    shard_directory = state_directory / "score_shards"
+    shard_directory = state_directory / "interval_shards"
     progress = MeshProgress(
         state_directory / "progress.json",
         pipeline="tokyo23-shade",
         failure_path=state_directory / "failed_mesh_report.json",
     )
 
-    for target_mesh, edge_ids in sorted(groups.items()):
-        if progress.is_completed(target_mesh) and (shard_directory / f"{target_mesh}.json").is_file():
+    for entry in entries:
+        mesh_id = entry.mesh_id
+        shard_path = shard_directory / f"{mesh_id}.json"
+        if progress.is_completed(mesh_id) and shard_path.is_file():
             continue
-        source_paths: list[Path] = []
+        raw_path: Path | None = None
         try:
-            coordinates = [point for edge_id in edge_ids for point in lonlat_edges[edge_id]]
-            bounds = (
-                min(point[0] for point in coordinates) - 0.006,
-                min(point[1] for point in coordinates) - 0.0045,
-                max(point[0] for point in coordinates) + 0.006,
-                max(point[1] for point in coordinates) + 0.0045,
-            )
-            planned = tuple(entry for entry in entries if _intersects(entry.bounds, bounds))
-            if not planned:
-                raise ValueError("500m 影响范围内没有 PLATEAU Building mesh。")
             shadows = {scenario: _GeometryAccumulator() for scenario in config.scenarios}
             footprints = _GeometryAccumulator()
             quality = {"valid": 0, "invalid": 0, "lod2": 0, "lod1": 0}
-            for entry in planned:
-                raw_path = source.fetch_entries((entry,))[0]
-                source_paths.append(raw_path)
-                for parsed in iter_buildings(raw_path):
-                    try:
-                        building = project_building_geometry(
-                            select_building_geometry(parsed), parsed.source_crs or "", config.analysis_crs,
-                        )
-                    except BuildingGeometryError:
-                        quality["invalid"] += 1
-                        continue
-                    quality["valid"] += 1
-                    quality["lod2" if building.selected_lod == 2 else "lod1"] += 1
-                    for scenario, solar in solar_positions.items():
-                        result = project_building_shadow(building, solar)
-                        shadows[scenario].add(result.shadow)
-                        if scenario == config.scenarios[0]:
-                            footprints.add(result.footprint)
+            raw_path = source.fetch_entries((entry,))[0]
+            for parsed in iter_buildings(raw_path):
+                try:
+                    building = project_building_geometry(
+                        select_building_geometry(parsed), parsed.source_crs or "", config.analysis_crs,
+                    )
+                except BuildingGeometryError:
+                    quality["invalid"] += 1
+                    continue
+                quality["valid"] += 1
+                quality["lod2" if building.selected_lod == 2 else "lod1"] += 1
+                for scenario, solar in solar_positions.items():
+                    result = project_building_shadow(building, solar)
+                    shadows[scenario].add(result.shadow)
+                    if scenario == config.scenarios[0]:
+                        footprints.add(result.footprint)
             footprint_union = footprints.finish()
             shadow_unions = {
-                scenario: accumulator.finish().difference(footprint_union)
+                scenario: accumulator.finish()
                 for scenario, accumulator in shadows.items()
             }
-            assigned_edges = tuple(projected_edges[edge_id] for edge_id in edge_ids)
-            scores = calculate_edge_shade_scores(assigned_edges, shadow_unions, config.scenarios)
-            if set(scores) != set(edge_ids):
-                raise ValueError("Shade shard Edge coverage 不匹配。")
-            _write_shard(shard_directory / f"{target_mesh}.json", scores)
-            progress.complete(target_mesh, {
-                "edgeCount": len(scores), "sourceMeshCount": len(planned), **quality,
+            records = _interval_records(
+                projected_edge_tuple, edge_tree, shadow_unions, footprint_union, config.scenarios,
+            )
+            _write_shard(shard_path, records)
+            progress.complete(mesh_id, {
+                "edgeIntersectionCount": len(records), **quality,
             })
-            for raw_path in source_paths:
+            if raw_path is not None:
                 raw_path.unlink(missing_ok=True)
                 raw_path.with_suffix(".metadata.json").unlink(missing_ok=True)
         except Exception as error:
-            progress.fail(target_mesh, str(error))
+            progress.fail(mesh_id, str(error))
         finally:
             gc.collect()
 
-    missing_targets = tuple(mesh for mesh in groups if not progress.is_completed(mesh))
-    if missing_targets:
+    missing_meshes = tuple(entry.mesh_id for entry in entries if not progress.is_completed(entry.mesh_id))
+    if missing_meshes:
         raise RuntimeError(
-            f"Tokyo23 Shade 覆盖不足：{len(missing_targets)} 个目标 mesh 失败。"
+            f"Tokyo23 Shade 覆盖不足：{len(missing_meshes)} 个 PLATEAU mesh 失败。"
         )
-    scores = merge_score_shards(graph_payload, shard_directory)
+    scores = merge_interval_shards(projected_edges, shard_directory)
     totals = {key: sum(item.get(key, 0) for item in progress.completed.values()) for key in ("valid", "invalid", "lod2", "lod1")}
     payload = build_shade_payload(
         graph_payload=graph_payload,
@@ -219,11 +323,11 @@ def run(
         },
         solar_positions=solar_positions,
         quality={
-            "targetMeshCount": len(groups),
-            "processingBuildingObservations": totals["valid"],
-            "invalidBuildingObservations": totals["invalid"],
-            "lod2BuildingObservations": totals["lod2"],
-            "lod1FallbackObservations": totals["lod1"],
+            "sourceMeshCount": len(entries),
+            "validBuildingCount": totals["valid"],
+            "invalidBuildingCount": totals["invalid"],
+            "lod2BuildingCount": totals["lod2"],
+            "lod1FallbackCount": totals["lod1"],
             "rawRetentionPolicy": "delete-after-validated-target-mesh",
         },
         scores=scores,
@@ -232,6 +336,7 @@ def run(
     report = validate_shade_payload(payload, graph_payload)
     publish_shade_json(payload, output_path)
     shutil.rmtree(shard_directory, ignore_errors=True)
+    shutil.rmtree(raw_directory, ignore_errors=True)
     validation = {
         "result": "passed", "edgeCount": report.edge_count,
         "missingEdgeCount": len(report.missing_edge_ids),

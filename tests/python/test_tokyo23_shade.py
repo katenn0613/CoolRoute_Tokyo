@@ -3,7 +3,16 @@ from tempfile import TemporaryDirectory
 import json
 import unittest
 
-from scripts.tokyo23.process_shade import merge_score_shards, mesh_id_for_point
+from shapely.geometry import LineString
+
+from scripts.shade.edge_scores import ProjectedEdge
+from scripts.tokyo23.process_shade import (
+    merge_interval_shards,
+    merge_intervals,
+    merge_score_shards,
+    mesh_id_for_point,
+    subtract_intervals,
+)
 
 
 class Tokyo23ShadeTests(unittest.TestCase):
@@ -36,6 +45,26 @@ class Tokyo23ShadeTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "Edge coverage"):
                 merge_score_shards(graph, root)
+
+    def test_interval_union_and_footprint_subtraction_prevent_double_counting(self):
+        self.assertEqual(merge_intervals(((0, 6), (4, 10))), ((0.0, 10.0),))
+        self.assertEqual(
+            subtract_intervals(((0, 10),), ((4, 6),)),
+            ((0.0, 4.0), (6.0, 10.0)),
+        )
+        edge = ProjectedEdge("a:b:0", "a", "b", LineString([(0, 0), (10, 0)]), 10)
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "mesh-a.json").write_text(json.dumps({
+                "a:b:0": {"shadow": [[[0, 6]], [[0, 6]], [[0, 6]]], "footprint": []},
+            }), encoding="utf-8")
+            (root / "mesh-b.json").write_text(json.dumps({
+                "a:b:0": {"shadow": [[[4, 10]], [[4, 10]], [[4, 10]]], "footprint": [[4, 6]]},
+            }), encoding="utf-8")
+
+            scores = merge_interval_shards({edge.id: edge}, root)
+
+        self.assertEqual(scores[edge.id], (0.8, 0.8, 0.8))
 
 
 if __name__ == "__main__":

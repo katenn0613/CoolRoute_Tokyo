@@ -39,6 +39,24 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _covered_areas_by_edge(
+    edge_count: int,
+    candidate_edge_indices: np.ndarray,
+    clipped: np.ndarray,
+) -> np.ndarray:
+    covered_areas = np.zeros(edge_count, dtype=float)
+    if len(candidate_edge_indices) == 0:
+        return covered_areas
+    order = np.argsort(candidate_edge_indices, kind="stable")
+    sorted_indices = candidate_edge_indices[order]
+    sorted_clipped = clipped[order]
+    starts = np.flatnonzero(np.r_[True, sorted_indices[1:] != sorted_indices[:-1]])
+    ends = np.r_[starts[1:], len(sorted_indices)]
+    for start, end in zip(starts, ends, strict=True):
+        covered_areas[sorted_indices[start]] = union_all(sorted_clipped[start:end]).area
+    return covered_areas
+
+
 def _cache_fingerprint(inspection: dict, edge_frame: gpd.GeoDataFrame) -> str:
     stable_inspection = {key: value for key, value in inspection.items() if key != "generatedAt"}
     payload = {
@@ -277,9 +295,7 @@ def build(
         road_buffers.take(candidate_pairs[0]), green_array.take(candidate_pairs[1])
     )
     print("[M4] candidate intersections complete", file=sys.stderr, flush=True)
-    covered_areas = np.zeros(len(road_buffers), dtype=float)
-    for edge_index in np.unique(candidate_pairs[0]):
-        covered_areas[edge_index] = union_all(clipped[candidate_pairs[0] == edge_index]).area
+    covered_areas = _covered_areas_by_edge(len(road_buffers), candidate_pairs[0], clipped)
     print("[M4] overlap-safe covered areas complete", file=sys.stderr, flush=True)
     scores = (covered_areas / buffer_areas).tolist()
     station_tree = STRtree(station_points)
