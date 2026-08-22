@@ -1,5 +1,9 @@
 # CoolRoute Tokyo
 
+[![中文](https://img.shields.io/badge/README-中文-16794b)](README.md)
+[![日本語](https://img.shields.io/badge/README-日本語-d9d9d9)](README_JA.md)
+[![English](https://img.shields.io/badge/README-English-d9d9d9)](README_EN.md)
+
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
 > **项目状态：** M11 Production 已调整为连续、可完整验证的**东京都心5区**（千代田区、中央区、港区、新宿区、文京区）。Road、Green、Water 与 Building Shade 使用同一正式服务范围；Browser Graph Schema 保持 `1.1.0`，正式运行完全静态且没有线上后端。
