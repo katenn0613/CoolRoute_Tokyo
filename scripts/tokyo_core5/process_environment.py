@@ -72,6 +72,7 @@ def _publish(staging: Path, output_directory: Path) -> None:
 def run(
     baseline: Path = Path("data/processed/tokyo_core5/graph_schema_1_0_baseline.json"),
     output_directory: Path = Path("public/data"),
+    area_path: Path = Path("config/tokyo_core5_area.json"),
 ) -> dict[str, object]:
     staging = Path("data/processed/tokyo_core5/environment_staging")
     shutil.rmtree(staging, ignore_errors=True)
@@ -80,7 +81,7 @@ def run(
         Path("data/processed/environment/schema_inspection.json"),
         Path("data/raw/drinking_station/tokyowaterdrinkingstation_250917.csv"),
         staging,
-        area_path=Path("config/tokyo_core5_area.json"),
+        area_path=area_path,
         cache_prefix="tokyo_core5",
     )
     graph = json.loads((staging / "graph.json").read_text(encoding="utf-8"))
@@ -100,8 +101,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="复用 M4 公式生成东京都心5区 Green/Water 数据。")
     parser.add_argument("--baseline", type=Path, default=Path("data/processed/tokyo_core5/graph_schema_1_0_baseline.json"))
     parser.add_argument("--output-dir", type=Path, default=Path("public/data"))
+    parser.add_argument("--area", type=Path, default=Path("config/tokyo_core5_area.json"))
     args = parser.parse_args()
-    print(json.dumps(run(args.baseline, args.output_dir), ensure_ascii=False, indent=2))
+    print(json.dumps(run(args.baseline, args.output_dir, args.area), ensure_ascii=False, indent=2))
     return 0
 
 

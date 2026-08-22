@@ -58,12 +58,27 @@ function validShade() {
   }
 }
 
+function validServiceArea() {
+  return {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { wardIds: ['13101', '13102', '13103', '13104', '13105'] },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[139.7, 35.6], [139.8, 35.6], [139.8, 35.7], [139.7, 35.7], [139.7, 35.6]]],
+      },
+    }],
+  }
+}
+
 async function createArtifact({
   basePath = '/demo-repo/',
   graph = validGraph(),
   environmentMetadata = { schemaVersion: '1.0.0' },
   stations = validStations(),
   shade = validShade(),
+  serviceArea = validServiceArea(),
   htmlAssetBasePath = basePath,
   includeWorker = true,
   referenceWorker = true,
@@ -88,22 +103,28 @@ async function createArtifact({
     await writeFile(path.join(directory, 'assets/maplibre-gl-worker-test.js'), 'self.onmessage = () => {};')
   }
   if (graph !== null) {
-    await writeFile(path.join(directory, 'data/graph.json'), JSON.stringify(graph))
+    await writeFile(path.join(directory, 'data/graph_tokyo_core5.json'), JSON.stringify(graph))
   }
   if (environmentMetadata !== null) {
     await writeFile(
-      path.join(directory, 'data/environment_metadata.json'),
+      path.join(directory, 'data/environment_metadata_tokyo_core5.json'),
       JSON.stringify(environmentMetadata),
     )
   }
   if (stations !== null) {
     await writeFile(
-      path.join(directory, 'data/drinking_stations.geojson'),
+      path.join(directory, 'data/drinking_stations_tokyo_core5.geojson'),
       JSON.stringify(stations),
     )
   }
   if (shade !== null) {
-    await writeFile(path.join(directory, 'data/shade.json'), JSON.stringify(shade))
+    await writeFile(path.join(directory, 'data/shade_tokyo_core5.json'), JSON.stringify(shade))
+  }
+  if (serviceArea !== null) {
+    await writeFile(
+      path.join(directory, 'data/service_area_tokyo_core5.geojson'),
+      JSON.stringify(serviceArea),
+    )
   }
 
   return directory
@@ -159,10 +180,11 @@ describe('validatePagesBuild', () => {
   })
 
   it.each([
-    ['graph.json', { graph: null }],
-    ['environment_metadata.json', { environmentMetadata: null }],
-    ['drinking_stations.geojson', { stations: null }],
-    ['shade.json', { shade: null }],
+    ['graph_tokyo_core5.json', { graph: null }],
+    ['environment_metadata_tokyo_core5.json', { environmentMetadata: null }],
+    ['drinking_stations_tokyo_core5.geojson', { stations: null }],
+    ['shade_tokyo_core5.json', { shade: null }],
+    ['service_area_tokyo_core5.geojson', { serviceArea: null }],
   ])('rejects a missing required production resource: %s', async (label, options) => {
     const distDirectory = await createArtifact(options)
 

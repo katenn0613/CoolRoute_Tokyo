@@ -11,7 +11,7 @@ import shutil
 import sys
 
 from pyproj import Transformer
-from shapely.geometry import box
+from shapely.geometry import box, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
 
@@ -37,24 +37,22 @@ from scripts.tokyo23.progress import MeshProgress
 from scripts.tokyo_core5.config import load_core5_config
 
 
-def _influence_bounds(bounds: tuple[float, float, float, float], meters: float):
+def _influence_geometry(geometry, meters: float):
     to_projected = Transformer.from_crs("EPSG:4326", "EPSG:6677", always_xy=True).transform
     to_wgs84 = Transformer.from_crs("EPSG:6677", "EPSG:4326", always_xy=True).transform
-    return transform(to_wgs84, transform(to_projected, box(*bounds)).buffer(meters)).bounds
+    return transform(to_wgs84, transform(to_projected, geometry).buffer(meters))
 
 
 def select_relevant_entries(
     entries: tuple[PlateauEntry, ...],
-    graph_bounds: tuple[float, float, float, float],
+    service_geometry,
     influence_meters: float = 500,
 ) -> tuple[PlateauEntry, ...]:
-    west, south, east, north = _influence_bounds(graph_bounds, influence_meters)
+    geometry = box(*service_geometry) if isinstance(service_geometry, tuple) else service_geometry
+    influence_area = _influence_geometry(geometry, influence_meters)
     return tuple(
         entry for entry in entries
-        if not (
-            entry.bounds[2] < west or entry.bounds[0] > east
-            or entry.bounds[3] < south or entry.bounds[1] > north
-        )
+        if influence_area.intersects(box(*entry.bounds))
     )
 
 
@@ -72,11 +70,14 @@ def run(
     graph_path: Path = Path("public/data/graph_tokyo_core5.json"),
     manifest_path: Path = Path("data/processed/tokyo23/plateau_manifest.json"),
     output_path: Path = Path("public/data/shade_tokyo_core5.json"),
+    config_path: Path = Path("config/tokyo_core5_area.json"),
+    service_area_path: Path = Path("public/data/service_area_tokyo_core5.geojson"),
 ) -> dict[str, object]:
-    core5 = load_core5_config()
+    core5 = load_core5_config(config_path)
     graph_payload = json.loads(graph_path.read_text(encoding="utf-8"))
-    graph_bounds = tuple(float(value) for value in graph_payload["metadata"]["actualBoundingBox"])
-    entries = select_relevant_entries(_manifest_entries(manifest_path), graph_bounds, 500)
+    service_payload = json.loads(service_area_path.read_text(encoding="utf-8"))
+    service_geometry = shape(service_payload["features"][0]["geometry"])
+    entries = select_relevant_entries(_manifest_entries(manifest_path), service_geometry, 500)
     if not entries:
         raise RuntimeError("Core5 Graph 500m 影响区内没有 PLATEAU Mesh。")
 
@@ -105,6 +106,10 @@ def run(
         pipeline="tokyo-core5-shade",
         failure_path=state_directory / "failed_mesh_report.json",
     )
+    target_ids = {entry.mesh_id for entry in entries}
+    for shard_path in shard_directory.glob("*.json"):
+        if shard_path.stem not in target_ids:
+            shard_path.unlink(missing_ok=True)
 
     for entry in entries_requiring_processing(entries, progress, shard_directory):
         raw_path: Path | None = None
@@ -157,7 +162,7 @@ def run(
 
     scores = merge_interval_shards(projected_edges, shard_directory)
     totals = {
-        key: sum(item.get(key, 0) for item in progress.completed.values())
+        key: sum(progress.completed.get(mesh_id, {}).get(key, 0) for mesh_id in target_ids)
         for key in ("valid", "invalid", "lod2", "lod1")
     }
     payload = build_shade_payload(
@@ -204,8 +209,14 @@ def main() -> int:
     parser.add_argument("--graph", type=Path, default=Path("public/data/graph_tokyo_core5.json"))
     parser.add_argument("--manifest", type=Path, default=Path("data/processed/tokyo23/plateau_manifest.json"))
     parser.add_argument("--output", type=Path, default=Path("public/data/shade_tokyo_core5.json"))
+    parser.add_argument("--config", type=Path, default=Path("config/tokyo_core5_area.json"))
+    parser.add_argument("--service-area", type=Path, default=Path("public/data/service_area_tokyo_core5.geojson"))
     args = parser.parse_args()
-    print(json.dumps(run(args.graph, args.manifest, args.output), ensure_ascii=False, indent=2))
+    print(json.dumps(
+        run(args.graph, args.manifest, args.output, args.config, args.service_area),
+        ensure_ascii=False,
+        indent=2,
+    ))
     return 0
 
 

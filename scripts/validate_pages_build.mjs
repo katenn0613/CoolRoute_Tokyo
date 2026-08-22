@@ -8,10 +8,11 @@ import { prepareGraph, validateGraphPayload } from '../src/routing/graphLoader.j
 import { validateShadePayload } from '../src/shade/shadeLoader.js'
 
 const REQUIRED_DATA_FILES = [
-  'data/graph.json',
-  'data/environment_metadata.json',
-  'data/drinking_stations.geojson',
-  'data/shade.json',
+  'data/graph_tokyo_core5.json',
+  'data/environment_metadata_tokyo_core5.json',
+  'data/drinking_stations_tokyo_core5.geojson',
+  'data/service_area_tokyo_core5.geojson',
+  'data/shade_tokyo_core5.json',
 ]
 
 export function normalizeBasePath(value) {
@@ -70,6 +71,19 @@ function validateStations(payload) {
     }
   }
   return payload.features.length
+}
+
+function validateServiceArea(payload) {
+  const feature = payload?.features?.[0]
+  if (
+    payload?.type !== 'FeatureCollection'
+    || !feature
+    || !['Polygon', 'MultiPolygon'].includes(feature?.geometry?.type)
+    || feature?.properties?.wardIds?.join(',') !== '13101,13102,13103,13104,13105'
+  ) {
+    throw new Error('Core5 Service Area must contain the fixed five-ward Polygon.')
+  }
+  return feature.properties.wardIds
 }
 
 async function listFiles(directory, relativeDirectory = '') {
@@ -151,7 +165,7 @@ async function verifyArtifactHttp(distDirectory, basePath) {
       await response.json()
     }
     const rootResponse = await fetch(`${server.origin}/`)
-    const rootDataResponse = await fetch(`${server.origin}/data/graph.json`)
+    const rootDataResponse = await fetch(`${server.origin}/data/graph_tokyo_core5.json`)
     if (basePath !== '/' && (rootResponse.status !== 404 || rootDataResponse.status !== 404)) {
       throw new Error('Root URLs unexpectedly bypassed the configured Pages Base Path.')
     }
@@ -198,21 +212,32 @@ export async function validatePagesBuild({ distDirectory, basePath, verifyHttp =
     }
   }
 
-  const graphPayload = await readJson(path.join(resolvedDist, 'data/graph.json'), 'graph.json')
+  const graphPayload = await readJson(
+    path.join(resolvedDist, 'data/graph_tokyo_core5.json'),
+    'graph_tokyo_core5.json',
+  )
   validateGraphPayload(graphPayload)
   const environmentMetadata = await readJson(
-    path.join(resolvedDist, 'data/environment_metadata.json'),
-    'environment_metadata.json',
+    path.join(resolvedDist, 'data/environment_metadata_tokyo_core5.json'),
+    'environment_metadata_tokyo_core5.json',
   )
   if (!environmentMetadata || typeof environmentMetadata !== 'object' || Array.isArray(environmentMetadata)) {
     throw new Error('Environment Metadata must be a JSON object.')
   }
   const stations = await readJson(
-    path.join(resolvedDist, 'data/drinking_stations.geojson'),
-    'drinking_stations.geojson',
+    path.join(resolvedDist, 'data/drinking_stations_tokyo_core5.geojson'),
+    'drinking_stations_tokyo_core5.geojson',
   )
   const drinkingStationCount = validateStations(stations)
-  const shade = await readJson(path.join(resolvedDist, 'data/shade.json'), 'shade.json')
+  const serviceArea = await readJson(
+    path.join(resolvedDist, 'data/service_area_tokyo_core5.geojson'),
+    'service_area_tokyo_core5.geojson',
+  )
+  const wardIds = validateServiceArea(serviceArea)
+  const shade = await readJson(
+    path.join(resolvedDist, 'data/shade_tokyo_core5.json'),
+    'shade_tokyo_core5.json',
+  )
   validateShadePayload(shade, prepareGraph(graphPayload))
   const http = verifyHttp
     ? await verifyArtifactHttp(resolvedDist, normalizedBasePath)
@@ -228,6 +253,7 @@ export async function validatePagesBuild({ distDirectory, basePath, verifyHttp =
       graphVersion: graphPayload.metadata.graphVersion,
     },
     drinkingStationCount,
+    wardIds,
     shadeEdgeCount: Object.keys(shade.edgeShadeScores).length,
     http,
   }
