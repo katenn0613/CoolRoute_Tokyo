@@ -241,7 +241,10 @@ def _parse_part(part: ET.Element) -> ParsedBuildingPart:
     )
 
 
-def _parse_building(building: ET.Element) -> ParsedBuilding:
+def _parse_building(
+    building: ET.Element,
+    inherited_source_crs: str | None = None,
+) -> ParsedBuilding:
     building_id = building.attrib.get(GML_ID)
     if not building_id:
         raise CityGmlParseError("Building 缺少 gml:id。")
@@ -263,7 +266,7 @@ def _parse_building(building: ET.Element) -> ParsedBuilding:
         lod1=lod1,
         lod2=lod2,
         parts=parts,
-        source_crs=_find_source_crs(building),
+        source_crs=_find_source_crs(building) or inherited_source_crs,
         quality_flags=quality_flags,
     )
 
@@ -271,10 +274,15 @@ def _parse_building(building: ET.Element) -> ParsedBuilding:
 def iter_buildings(path: Path) -> Iterator[ParsedBuilding]:
     """逐栋解析 PLATEAU Building，并在产出后释放对应 XML 子树。"""
 
-    for _event, element in ET.iterparse(Path(path), events=("end",)):
+    source_crs = None
+    for event, element in ET.iterparse(Path(path), events=("start", "end")):
+        if event == "start":
+            if source_crs is None and element.attrib.get("srsName"):
+                source_crs = element.attrib["srsName"]
+            continue
         local_name = _local_name(element.tag)
         if local_name == "Building":
-            yield _parse_building(element)
+            yield _parse_building(element, source_crs)
             element.clear()
         elif local_name == "cityObjectMember":
             element.clear()

@@ -10,7 +10,7 @@ export function ProductInfo() {
             </a>
           </li>
           <li>
-            <a href="https://www.geospatial.jp/ckan/dataset/plateau-13101-chiyoda-ku-2023" rel="noreferrer" target="_blank">
+            <a href="https://www.geospatial.jp/ckan/dataset/plateau-tokyo23ku" rel="noreferrer" target="_blank">
               国土交通省 Project PLATEAU 建築物モデル
             </a>
           </li>

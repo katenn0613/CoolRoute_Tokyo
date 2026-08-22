@@ -55,7 +55,7 @@ describe('Graph Loader', () => {
     const result = await loadRoadGraph({ fetchImpl })
 
     const requestedUrl = fetchImpl.mock.calls[0][0]
-    expect(requestedUrl).toMatch(/data\/graph\.json$/)
+    expect(requestedUrl).toMatch(/data\/graph_tokyo23\.json$/)
     expect(requestedUrl).not.toContain('localhost')
     expect(result.loadTimeMs).toBeGreaterThanOrEqual(0)
     expect(result.graph.nodes).toBeInstanceOf(Map)

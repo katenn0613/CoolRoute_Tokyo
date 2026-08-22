@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import demoAreaConfig from '../../config/demo_area.json'
+import tokyo23AreaConfig from '../../config/tokyo23_area.json'
 import { DATA_SOURCE_STATUS, dataSources, statusDataSources } from '../../src/config/dataSources.js'
 import { demoArea } from '../../src/config/demoArea.js'
 import { assetPath } from '../../src/utils/assetPath.js'
 
-describe('Demo Area 配置', () => {
-  it('将约 2–3 km 开发区域保持在一份有效配置中', () => {
-    expect(demoArea.id).toBe('temporary_demo_area')
-    expect(demoArea.center).toEqual([139.7575, 35.683])
-    expect(demoArea.zoom).toBe(14.2)
-    expect(demoArea.boundingBox).toEqual([139.744, 35.672, 139.771, 35.694])
+describe('Production Area 配置', () => {
+  it('使用有效的 Tokyo23 配置', () => {
+    expect(demoArea.id).toBe('tokyo_23_wards')
+    expect(demoArea.center).toEqual([139.758, 35.676])
+    expect(demoArea.zoom).toBe(10.4)
+    expect(demoArea.boundingBox).toEqual([139.559, 35.528, 139.918, 35.818])
     expect(demoArea.boundingBox[0]).toBeLessThan(demoArea.boundingBox[2])
     expect(demoArea.boundingBox[1]).toBeLessThan(demoArea.boundingBox[3])
   })
 
   it('直接采用 React 和 Python 共用的 JSON 配置值', () => {
-    expect(demoArea).toEqual(demoAreaConfig)
+    expect(demoArea).toEqual(tokyo23AreaConfig)
   })
 })
 

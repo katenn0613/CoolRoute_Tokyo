@@ -50,6 +50,9 @@ export function useShadeLayer({ graph, loadShade = loadShadeData } = {}) {
       : null,
     [graph, scenario, state.payload, state.status],
   )
+  const coverage = state.status === 'ready'
+    ? state.payload.metadata.quality ?? null
+    : null
   return {
     status: state.status,
     error: state.error,
@@ -59,5 +62,6 @@ export function useShadeLayer({ graph, loadShade = loadShadeData } = {}) {
     createRoutingContext,
     routingContext,
     geoJSON,
+    coverage,
   }
 }

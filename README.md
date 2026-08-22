@@ -2,13 +2,13 @@
 
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
-> **项目状态：** M0–M8、M10 与 M10.5 已完成，M9 Weather 已取消。当前 Demo 已具备日语优先的三路线 Compare UI、纯浏览器端 Weighted Dijkstra、基于真实东京道路与官方环境数据代理值的 Heat Exposure Model、90 组确定性分层 OD 基线评价，以及参与 Balanced/Coolest Cost 的 Project PLATEAU 建筑阴影三个离线场景。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有引入线上后端。
+> **项目状态：** M11 已将 Road、Green、Water 扩展到东京23区，并上线 664/672 个 PLATEAU mesh（98.81%）的 Building Shade。缺失的 8 个 mesh 会使其附近的阴影被低估，但不影响 Road Graph、Fastest 或 Green/Water。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有线上后端。
 
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
 
-日语项目说明见 [PROJECT_OVERVIEW_JA](docs/PROJECT_OVERVIEW_JA.md)。当前网站仅覆盖“皇居东侧—丸之内—东京站” Demo Area，不代表东京全域。
+日语项目说明见 [PROJECT_OVERVIEW_JA](docs/PROJECT_OVERVIEW_JA.md)，东京23区数据质量与限制见 [TOKYO23_SCALE_REPORT_JA](docs/TOKYO23_SCALE_REPORT_JA.md)。
 
 ## 架构概览
 
@@ -72,9 +72,9 @@ npm run evaluate:routes
 .venv/bin/python scripts/build_osm_graph.py --force-download
 ```
 
-## Demo 区域
+## 覆盖区域
 
-当前使用“皇居东侧—丸之内—东京站”临时 Demo 区域，中心点为 `[139.7575, 35.683]`，边界框为 `[139.744, 35.672, 139.771, 35.694]`。唯一坐标源是 `config/demo_area.json`，React 和 Python 均读取该文件。
+Production 默认使用东京23区数据，中心点为 `[139.758, 35.676]`，边界框为 `[139.559, 35.528, 139.918, 35.818]`，唯一配置源为 `config/tokyo23_area.json`。原 Demo 数据继续保留，不被 M11 覆盖。
 
 ## 仓库目录
 
@@ -205,5 +205,9 @@ M10.5 保留 M5 Base Exposure `0.7 × (1-green_score) + 0.3 × water_penalty`，
 - **M10 — Building Shade Prototype：** 已完成当前 Demo Area 秋分日 09:00、12:00、15:00 三个离散场景的离线预计算与静态图层；
 - **M10.5 — Shade-aware Routing：** 固定 25% Building Shade 环境贡献，让三个离散场景参与 Balanced/Coolest 浏览器端寻路；
 - **M11 — Tokyo Scale Expansion：** 使用增量区域切片管线扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
+
+## M11 Tokyo23 Scale Expansion
+
+Production 默认加载 `graph_tokyo23.json`、`environment_metadata_tokyo23.json`、`drinking_stations_tokyo23.geojson` 和独立的 `shade_tokyo23.json`。Road Graph 包含 111,574 个 Node 与 327,240 条有向 Edge；Green/Water 已完整生成。Building Shade 当前纳入 672 个目标 mesh 中的 664 个，缺失列表及质量统计记录在 Sidecar metadata 和 [日语报告](docs/TOKYO23_SCALE_REPORT_JA.md) 中。原 Demo 静态文件保留用于回归，不再是 Production 默认数据。
 
 M8–M11 不改变当前核心原则：Raw GIS 只用于离线处理，浏览器只读取轻量静态数据，正式应用不依赖线上后端。

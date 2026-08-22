@@ -192,6 +192,7 @@ export function useRouteBundle({ loadGraph = loadRoadGraph, loadShade } = {}) {
     shadeGeoJSON: shadeState.geoJSON,
     shadeStatus: shadeState.status,
     shadeError: shadeState.error,
+    shadeCoverage: shadeState.coverage,
     shadeScenario: shadeState.scenario,
     routingEnvironmentStatus: shadeState.routingContext
       ? 'shade-aware'

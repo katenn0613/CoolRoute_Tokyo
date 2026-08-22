@@ -63,8 +63,10 @@ class MeshProgress:
         _write_json(self.failure_path, {"pipeline": self.pipeline, "failed": self.failures})
 
     def fail(self, mesh_id: str, error: str) -> None:
+        self.completed.pop(mesh_id, None)
         self.failures[mesh_id] = {
             "error": str(error),
             "failedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
+        _write_json(self.path, {"pipeline": self.pipeline, "completed": self.completed})
         _write_json(self.failure_path, {"pipeline": self.pipeline, "failed": self.failures})

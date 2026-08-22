@@ -40,6 +40,13 @@ def validate_payloads(graph: dict, shade: dict, environment: dict, stations: dic
             if not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
                 raise ValueError(f"Edge {edge_id} {field} 无效。")
     shade_report = validate_shade_payload(shade, graph)
+    shade_quality = shade.get("metadata", {}).get("quality", {})
+    source_mesh_count = shade_quality.get("sourceMeshCount")
+    processed_mesh_count = shade_quality.get("processedSourceMeshCount", source_mesh_count)
+    if not isinstance(source_mesh_count, int) or not isinstance(processed_mesh_count, int):
+        raise ValueError("Tokyo23 Shade 缺少 Source Mesh 覆盖统计。")
+    if not 0 < processed_mesh_count <= source_mesh_count:
+        raise ValueError("Tokyo23 Shade Source Mesh 覆盖统计无效。")
     if environment.get("graphSchemaVersion") != "1.1.0":
         raise ValueError("Tokyo23 Environment metadata Graph Schema 不匹配。")
     if environment.get("quality", {}).get("validationResult") != "passed":
@@ -51,6 +58,9 @@ def validate_payloads(graph: dict, shade: dict, environment: dict, stations: dic
         "nodeCount": len(nodes),
         "edgeCount": len(edges),
         "shadeEdgeCoverage": shade_report.edge_count / len(edges),
+        "shadeSourceMeshCoverage": processed_mesh_count / source_mesh_count,
+        "shadeCoverageStatus": shade_quality.get("coverageStatus", "complete"),
+        "missingShadeMeshIds": shade_quality.get("missingSourceMeshIds", []),
         "drinkingStationCount": len(stations["features"]),
         "graphSchemaVersion": "1.1.0",
         "shadeSchemaVersion": "1.0.0",

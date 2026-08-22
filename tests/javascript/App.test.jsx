@@ -39,6 +39,7 @@ function routingState(overrides = {}) {
     shadeStatus: 'ready', shadeScenario: '12:00',
     shadeGeoJSON: { type: 'FeatureCollection', features: [] },
     changeShadeScenario: vi.fn(), routingEnvironmentStatus: 'shade-aware',
+    shadeCoverage: null,
     ...overrides,
   }
 }
@@ -89,6 +90,7 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.getByRole('heading', { name: 'CoolRoute Tokyo' })).toBeInTheDocument()
     expect(screen.getByText('暑い日の徒歩移動を、もっと快適に。')).toBeInTheDocument()
     expect(screen.getByText('地図上で出発地を選択してください')).toBeInTheDocument()
+    expect(screen.getAllByText('東京23区').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByLabelText('最短ルート')).toBeEnabled()
     expect(screen.getByRole('radio', { name: 'バランスルート' })).toBeChecked()
     expect(screen.getByLabelText('涼しさ優先ルート')).toBeEnabled()
@@ -96,6 +98,14 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.getByRole('button', { name: '目的地を変更' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'リセット' })).toBeEnabled()
   }, 15000)
+
+  it('Shade 数据绝大部分覆盖时明确显示精确范围和限制', () => {
+    routingHook.state = routingState({
+      shadeCoverage: { coverageStatus: 'substantially-complete', processedSourceMeshCount: 664 },
+    })
+    render(<App />)
+    expect(screen.getByText(/672メッシュ中664メッシュ、98.81%/)).toBeInTheDocument()
+  })
 
   it('三条 Route Card 显示日语指标，切换只调用 selectMode', () => {
     routingHook.state = readyState()

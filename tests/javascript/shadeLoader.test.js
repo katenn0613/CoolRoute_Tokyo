@@ -32,6 +32,14 @@ function payload() {
 }
 
 describe('Shade static data loader', () => {
+  it('defaults to the Tokyo23 GitHub Pages asset', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => payload() })
+
+    await loadShadeData({ fetchImpl })
+
+    expect(fetchImpl.mock.calls[0][0]).toMatch(/data\/shade_tokyo23\.json$/)
+  })
+
   it('loads a caller supplied GitHub Pages compatible URL', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => payload() })
 

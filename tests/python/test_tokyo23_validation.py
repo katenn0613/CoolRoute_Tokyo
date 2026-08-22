@@ -18,6 +18,8 @@ class Tokyo23ValidationTests(unittest.TestCase):
             "metadata": {
                 "schemaVersion": "1.0.0", "scenarios": ["09:00", "12:00", "15:00"],
                 "roadGraphSchemaVersion": "1.1.0", "roadGraphGeneratedAt": "snapshot", "edgeCount": 1,
+                "quality": {"sourceMeshCount": 2, "processedSourceMeshCount": 1,
+                            "coverageStatus": "substantially-complete", "missingSourceMeshIds": ["mesh-b"]},
             },
             "edgeShadeScores": {"a:b:0": [0.1, 0.2, 0.3]},
         }
@@ -30,6 +32,8 @@ class Tokyo23ValidationTests(unittest.TestCase):
         self.assertEqual(report["result"], "passed")
         self.assertEqual(report["edgeCount"], 1)
         self.assertEqual(report["shadeEdgeCoverage"], 1.0)
+        self.assertEqual(report["shadeSourceMeshCoverage"], 0.5)
+        self.assertEqual(report["shadeCoverageStatus"], "substantially-complete")
 
     def test_missing_shade_edge_blocks_validation(self):
         self.shade["edgeShadeScores"] = {}

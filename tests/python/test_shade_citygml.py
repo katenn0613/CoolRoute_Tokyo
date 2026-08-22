@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
 import unittest
 
 from scripts.shade.citygml import iter_buildings
@@ -42,6 +43,22 @@ class CityGmlParserTests(unittest.TestCase):
         self.assertEqual(len(building.lod1.surfaces), 1)
         self.assertEqual(building.lod2.surfaces, ())
         self.assertEqual(building.lod2.unresolved_reference_ids, ("missing-surface",))
+
+    def test_parser_inherits_city_model_envelope_crs(self):
+        xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<core:CityModel xmlns:core="http://www.opengis.net/citygml/2.0"
+ xmlns:bldg="http://www.opengis.net/citygml/building/2.0"
+ xmlns:gml="http://www.opengis.net/gml">
+ <gml:boundedBy><gml:Envelope srsName="http://www.opengis.net/def/crs/EPSG/0/6697"/></gml:boundedBy>
+ <core:cityObjectMember><bldg:Building gml:id="global-crs"/></core:cityObjectMember>
+</core:CityModel>'''
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "global-crs.gml"
+            path.write_text(xml, encoding="utf-8")
+
+            building = next(iter_buildings(path))
+
+        self.assertEqual(building.source_crs, "http://www.opengis.net/def/crs/EPSG/0/6697")
 
 
 if __name__ == "__main__":

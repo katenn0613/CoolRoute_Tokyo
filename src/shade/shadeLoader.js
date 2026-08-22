@@ -68,7 +68,7 @@ export function validateShadePayload(payload, graph) {
 
 export async function loadShadeData({
   fetchImpl = globalThis.fetch,
-  url = assetPath('data/shade.json'),
+  url = assetPath('data/shade_tokyo23.json'),
 } = {}) {
   let response
   try {
@@ -85,4 +85,3 @@ export async function loadShadeData({
     throw new ShadeLoadError('Shade 静态资源不是有效 JSON。', { cause: error })
   }
 }
-

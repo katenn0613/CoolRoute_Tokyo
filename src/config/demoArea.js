@@ -1,4 +1,4 @@
-import demoAreaConfig from '../../config/demo_area.json'
+import demoAreaConfig from '../../config/tokyo23_area.json'
 
 export const demoArea = Object.freeze({
   ...demoAreaConfig,
