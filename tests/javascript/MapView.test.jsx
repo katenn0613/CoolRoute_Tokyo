@@ -172,6 +172,25 @@ describe('M6 MapView', () => {
     expect(maplibre.markerInstances).toHaveLength(2)
     expect(maplibre.markerInstances[0].setLngLat).toHaveBeenCalledWith([139.75, 35.68])
     expect(maplibre.markerInstances[1].setLngLat).toHaveBeenCalledWith([139.753, 35.682])
+    expect(screen.getByText('東京都心5区')).toBeInTheDocument()
+  })
+
+  it('uses MVT environment layers only for the explicit Tokyo23 experimental dataset', () => {
+    render(<MapView datasetId="tokyo23-route-a" shadeStatus="ready" />)
+    act(() => maplibre.handlers.load())
+
+    expect(maplibre.addSource).toHaveBeenCalledWith(
+      'heat-exposure', expect.objectContaining({ type: 'vector' }),
+    )
+    expect(maplibre.addSource).toHaveBeenCalledWith(
+      'building-shade', expect.objectContaining({ type: 'vector' }),
+    )
+    expect(maplibre.addSource).toHaveBeenCalledWith(
+      'drinking-stations', expect.objectContaining({
+        data: expect.stringContaining('drinking_stations_tokyo23.geojson'),
+      }),
+    )
+    expect(screen.getByText('東京23区（実験データ）')).toBeInTheDocument()
   })
 
   it('错误时隐藏技术详情并在卸载时移除 Map', () => {

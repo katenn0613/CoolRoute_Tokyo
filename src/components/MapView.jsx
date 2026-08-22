@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Map, Marker, NavigationControl, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { demoArea } from '../config/demoArea.js'
+import { defaultDataset, resolveDataset } from '../config/datasetConfig.js'
 import { mapStyle } from '../config/mapStyle.js'
 import {
   exposureLayerPresentation,
@@ -11,6 +11,7 @@ import {
   shadeLayerPresentation,
 } from '../config/presentationConfig.js'
 import { assetPath } from '../utils/assetPath.js'
+import { shadePropertyForScenario, tileConfig } from '../config/tileConfig.js'
 import { MapLayerControls } from './MapLayerControls.jsx'
 
 const routeModes = ['fastest', 'balanced', 'coolest']
@@ -38,6 +39,7 @@ function routeLayer(mode) {
 }
 
 export function MapView({
+  datasetId = defaultDataset.id,
   destination = null,
   exposureGeoJSON = null,
   interactionEnabled = false,
@@ -50,6 +52,8 @@ export function MapView({
   onShadeScenarioChange = () => {},
   start = null,
 }) {
+  const dataset = resolveDataset(datasetId)
+  const usesVectorEnvironment = dataset.runtime === 'binary-worker'
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const startMarkerRef = useRef(null)
@@ -60,6 +64,7 @@ export function MapView({
   const selectedModeRef = useRef(selectedMode)
   const exposureRef = useRef(exposureGeoJSON)
   const shadeRef = useRef(shadeGeoJSON)
+  const shadeScenarioRef = useRef(shadeScenario)
   const [status, setStatus] = useState('loading')
   const [mapReady, setMapReady] = useState(false)
   const [heatVisible, setHeatVisible] = useState(false)
@@ -72,28 +77,29 @@ export function MapView({
   selectedModeRef.current = selectedMode
   exposureRef.current = exposureGeoJSON
   shadeRef.current = shadeGeoJSON
+  shadeScenarioRef.current = shadeScenario
 
   useEffect(() => {
     setWorkerUrl(workerUrl)
     const map = new Map({
       container: containerRef.current,
       style: mapStyle,
-      center: demoArea.center,
-      zoom: demoArea.zoom,
-      maxBounds: demoArea.boundingBox,
+      center: dataset.area.center,
+      zoom: dataset.area.zoom,
+      maxBounds: dataset.area.boundingBox,
       attributionControl: true,
     })
     mapRef.current = map
     map.addControl(new NavigationControl(), 'top-right')
     map.on('load', () => {
-      map.addSource('heat-exposure', {
-        type: 'geojson',
-        data: exposureRef.current ?? emptyGeoJSON,
-      })
+      map.addSource('heat-exposure', usesVectorEnvironment
+        ? tileConfig.heatSource
+        : { type: 'geojson', data: exposureRef.current ?? emptyGeoJSON })
       map.addLayer({
         id: 'heat-exposure-line',
         type: 'line',
         source: 'heat-exposure',
+        ...(usesVectorEnvironment ? { 'source-layer': tileConfig.sourceLayer } : {}),
         layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-width': exposureLayerPresentation.width,
@@ -106,20 +112,22 @@ export function MapView({
           ],
         },
       })
-      map.addSource('building-shade', {
-        type: 'geojson',
-        data: shadeRef.current ?? emptyGeoJSON,
-      })
+      map.addSource('building-shade', usesVectorEnvironment
+        ? tileConfig.shadeSource
+        : { type: 'geojson', data: shadeRef.current ?? emptyGeoJSON })
       map.addLayer({
         id: 'building-shade-line',
         type: 'line',
         source: 'building-shade',
+        ...(usesVectorEnvironment ? { 'source-layer': tileConfig.sourceLayer } : {}),
         layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': shadeLayerPresentation.color,
           'line-width': shadeLayerPresentation.width,
           'line-opacity': [
-            'interpolate', ['linear'], ['get', 'shadeScore'],
+            'interpolate', ['linear'], ['get', usesVectorEnvironment
+              ? shadePropertyForScenario(shadeScenarioRef.current)
+              : 'shadeScore'],
             0, shadeLayerPresentation.minimumOpacity,
             1, shadeLayerPresentation.maximumOpacity,
           ],
@@ -127,7 +135,7 @@ export function MapView({
       })
       map.addSource('drinking-stations', {
         type: 'geojson',
-        data: assetPath('data/drinking_stations_tokyo_core5.geojson'),
+        data: assetPath(dataset.drinkingStationsPath),
       })
       map.addLayer({
         id: 'drinking-stations-points',
@@ -225,14 +233,27 @@ export function MapView({
   }, [mapReady, routes, selectedMode])
 
   useEffect(() => {
-    if (!mapReady) return
+    if (!mapReady || usesVectorEnvironment) return
     mapRef.current?.getSource('heat-exposure')?.setData(exposureGeoJSON ?? emptyGeoJSON)
-  }, [exposureGeoJSON, mapReady])
+  }, [exposureGeoJSON, mapReady, usesVectorEnvironment])
 
   useEffect(() => {
-    if (!mapReady) return
+    if (!mapReady || usesVectorEnvironment) return
     mapRef.current?.getSource('building-shade')?.setData(shadeGeoJSON ?? emptyGeoJSON)
-  }, [mapReady, shadeGeoJSON])
+  }, [mapReady, shadeGeoJSON, usesVectorEnvironment])
+
+  useEffect(() => {
+    if (!mapReady || !usesVectorEnvironment) return
+    mapRef.current?.setPaintProperty(
+      'building-shade-line',
+      'line-opacity',
+      [
+        'interpolate', ['linear'], ['get', shadePropertyForScenario(shadeScenario)],
+        0, shadeLayerPresentation.minimumOpacity,
+        1, shadeLayerPresentation.maximumOpacity,
+      ],
+    )
+  }, [mapReady, shadeScenario, usesVectorEnvironment])
 
   useEffect(() => {
     if (!mapReady) return
@@ -298,7 +319,7 @@ export function MapView({
       </div>
       <div className="map-area-caption">
         <span>対象エリア</span>
-        <strong>東京都心5区</strong>
+        <strong>{dataset.label}</strong>
       </div>
     </section>
   )

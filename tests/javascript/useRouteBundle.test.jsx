@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { PHASES } from '../../src/routing/selectionMachine.js'
 import { useRouteBundle } from '../../src/routing/useRouteBundle.js'
 import { createSyntheticRoadGraph } from './fixtures/syntheticRoadGraph.js'
@@ -25,6 +25,66 @@ function shadePayload(graph) {
 }
 
 describe('useRouteBundle', () => {
+  it('uses the Tokyo23 Worker engine and recalculates for a changed Shade scenario', async () => {
+    const routeBundle = {
+      routes: {
+        fastest: { metrics: { distanceMeters: 100 }, geoJSON: { type: 'Feature' } },
+        balanced: { metrics: { distanceMeters: 110 }, geoJSON: { type: 'Feature' } },
+        coolest: { metrics: { distanceMeters: 120 }, geoJSON: { type: 'Feature' } },
+      },
+      comparisons: {},
+      shadeAwareComparisons: {},
+      totalCalculationTimeMs: 5,
+    }
+    const engine = {
+      init: vi.fn().mockResolvedValue({
+        nodeCount: 409472, edgeCount: 1206772, loadTimeMs: 250, shadeAvailable: true,
+      }),
+      snap: vi.fn()
+        .mockResolvedValueOnce({ index: 4, lon: 139.7, lat: 35.7, distanceMeters: 5 })
+        .mockResolvedValueOnce({ index: 8, lon: 139.71, lat: 35.71, distanceMeters: 4 }),
+      calculateBundle: vi.fn().mockResolvedValue(routeBundle),
+      dispose: vi.fn(),
+    }
+    const { result, unmount } = renderHook(() => useRouteBundle({
+      datasetId: 'tokyo23-route-a',
+      engine,
+    }))
+    await waitFor(() => expect(result.current.graphStatus).toBe('ready'))
+    expect(result.current.datasetId).toBe('tokyo23-route-a')
+    expect(result.current.roadGraph).toBeNull()
+
+    await act(async () => result.current.handleMapClick([139.7, 35.7]))
+    await waitFor(() => expect(result.current.phase).toBe(PHASES.AWAITING_DESTINATION))
+    await act(async () => result.current.handleMapClick([139.71, 35.71]))
+    await waitFor(() => expect(result.current.phase).toBe(PHASES.ROUTE_READY))
+    expect(engine.calculateBundle).toHaveBeenCalledWith(4, 8, '12:00')
+
+    await act(async () => result.current.changeShadeScenario('15:00'))
+    await waitFor(() => expect(engine.calculateBundle).toHaveBeenLastCalledWith(4, 8, '15:00'))
+    expect(result.current.shadeScenario).toBe('15:00')
+    unmount()
+    expect(engine.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('falls back to the verified Core5 JSON runtime when Worker initialization fails', async () => {
+    const graph = createSyntheticRoadGraph()
+    const engine = {
+      init: vi.fn().mockRejectedValue(new Error('binary unavailable')),
+      dispose: vi.fn(),
+    }
+    const fallbackLoadGraph = vi.fn().mockResolvedValue({ graph, loadTimeMs: 12 })
+    const { result } = renderHook(() => useRouteBundle({
+      datasetId: 'tokyo23-route-a',
+      engine,
+      fallbackLoadGraph,
+    }))
+    await waitFor(() => expect(result.current.graphStatus).toBe('ready'))
+    expect(result.current.datasetId).toBe('tokyo-core5')
+    expect(result.current.roadGraph).toBe(graph)
+    expect(result.current.exposureGeoJSON.features).toHaveLength(graph.edges.size)
+  })
+
   it('loads one graph and calculates all three routes after the second valid click', async () => {
     const graph = createSyntheticRoadGraph()
     const loadGraph = () => Promise.resolve({ graph, loadTimeMs: 12.5 })

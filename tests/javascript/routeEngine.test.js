@@ -20,6 +20,18 @@ class FakeWorker {
 }
 
 describe('Route Engine Worker client', () => {
+  it('turns default assets into absolute URLs before sending them to the Worker', async () => {
+    const worker = new FakeWorker()
+    const engine = createRouteEngine({ workerFactory: () => worker })
+    const pending = engine.init()
+
+    expect(worker.messages[0].graphUrl).toMatch(/^https?:\/\//)
+    expect(new URL(worker.messages[0].graphUrl).pathname).toMatch(/\/data\/graph_tokyo23\.bin\.gz$/)
+    expect(new URL(worker.messages[0].rawGraphUrl).pathname).toMatch(/\/data\/graph_tokyo23\.bin$/)
+    engine.dispose()
+    await expect(pending).rejects.toEqual(expect.any(RouteEngineError))
+  })
+
   it('passes init, snap and route requests through one worker', async () => {
     const worker = new FakeWorker()
     const engine = createRouteEngine({

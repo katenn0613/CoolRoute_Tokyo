@@ -13,10 +13,15 @@ const defaultWorkerFactory = () => new Worker(
   { type: 'module' },
 )
 
+function absoluteAssetPath(relativePath) {
+  const baseUrl = globalThis.location?.href ?? 'http://localhost/'
+  return new URL(assetPath(relativePath), baseUrl).href
+}
+
 export function createRouteEngine({
-  graphUrl = assetPath('data/graph_tokyo23.bin.gz'),
-  rawGraphUrl = assetPath('data/graph_tokyo23.bin'),
-  shadeMetadataUrl = assetPath('data/shade_metadata_tokyo23.json'),
+  graphUrl = absoluteAssetPath('data/graph_tokyo23.bin.gz'),
+  rawGraphUrl = absoluteAssetPath('data/graph_tokyo23.bin'),
+  shadeMetadataUrl = absoluteAssetPath('data/shade_metadata_tokyo23.json'),
   boundingBox,
   workerFactory = defaultWorkerFactory,
 } = {}) {
