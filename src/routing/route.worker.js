@@ -72,6 +72,7 @@ function buildShadeContext(edgeObjects, scenario) {
 function computeBundle(startIndex, destinationIndex, scenario) {
   const totalStartedAt = performance.now()
   const routes = {}
+  const hasShade = graph.scenarioCount > 0
   for (const mode of Object.values(ROUTING_MODES)) {
     const startedAt = performance.now()
     const result = weightedDijkstraBinary(
@@ -79,11 +80,11 @@ function computeBundle(startIndex, destinationIndex, scenario) {
       adjacency,
       startIndex,
       destinationIndex,
-      { mode, scenario },
+      { mode, scenario: hasShade ? scenario : null },
     )
     if (!result.found) throw new Error('所选两点之间找不到可通行路线。')
     const edgeObjects = result.edgeSequence.map((edgeIndex) => materializeEdge(graph, edgeIndex))
-    const shadeContext = buildShadeContext(edgeObjects, scenario)
+    const shadeContext = hasShade ? buildShadeContext(edgeObjects, scenario) : null
     routes[mode] = {
       mode,
       result: {
@@ -111,10 +112,12 @@ function computeBundle(startIndex, destinationIndex, scenario) {
     balanced: compareRouteToFastest(routes.balanced.metrics, routes.fastest.metrics),
     coolest: compareRouteToFastest(routes.coolest.metrics, routes.fastest.metrics),
   }
-  const shadeAwareComparisons = {
-    balanced: compareShadeAwareRouteToFastest(routes.balanced.metrics, routes.fastest.metrics),
-    coolest: compareShadeAwareRouteToFastest(routes.coolest.metrics, routes.fastest.metrics),
-  }
+  const shadeAwareComparisons = hasShade
+    ? {
+        balanced: compareShadeAwareRouteToFastest(routes.balanced.metrics, routes.fastest.metrics),
+        coolest: compareShadeAwareRouteToFastest(routes.coolest.metrics, routes.fastest.metrics),
+      }
+    : null
   return {
     routes,
     comparisons,
@@ -153,7 +156,7 @@ self.onmessage = async (event) => {
       graph = decodeBinaryGraph(buffer)
       adjacency = buildAdjacency(graph)
       let shadeCoverage = null
-      if (shadeMetadataUrl) {
+      if (graph.scenarioCount > 0 && shadeMetadataUrl) {
         try {
           const metadata = await (await fetch(shadeMetadataUrl)).json()
           shadeCoverage = metadata.quality ?? null
@@ -166,6 +169,7 @@ self.onmessage = async (event) => {
         nodeCount: graph.nodeCount,
         edgeCount: graph.edgeCount,
         loadTimeMs: performance.now() - startedAt,
+        shadeAvailable: graph.scenarioCount > 0,
         shadeCoverage,
       })
       return

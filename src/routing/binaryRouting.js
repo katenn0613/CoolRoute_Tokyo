@@ -42,7 +42,8 @@ export function buildAdjacency(graph) {
 export function edgeExposure(graph, edgeIndex, scenario = null) {
   const base = GREEN_WEIGHT * (1 - graph.edgeGreen[edgeIndex])
     + WATER_WEIGHT * graph.edgeWater[edgeIndex]
-  if (scenario === null) return base
+  // 无阴影模式（scenarioCount === 0）：忽略场景，仅用 base（绿地/给水）暴露。
+  if (scenario === null || graph.scenarioCount === 0) return base
   const shadeScore = graph.shade[edgeIndex * graph.scenarioCount + scenarioIndex(scenario)]
   return (1 - SHADE_WEIGHT) * base + SHADE_WEIGHT * (1 - shadeScore)
 }

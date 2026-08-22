@@ -50,7 +50,7 @@ export function useRouteBundle({ loadGraph, loadShade, engine } = {}) {
       engineRef.current.init()
         .then((info) => {
           if (!active) return
-          setShadeReady(true)
+          setShadeReady(info.shadeAvailable ?? true)
           if (info.shadeCoverage) setShadeCoverage(info.shadeCoverage)
           setGraphState({ status: 'ready', loadTimeMs: info.loadTimeMs, error: null })
         })
