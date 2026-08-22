@@ -11,6 +11,7 @@ import {
   shadeLayerPresentation,
 } from '../config/presentationConfig.js'
 import { assetPath } from '../utils/assetPath.js'
+import { shadePropertyForScenario, tileConfig } from '../config/tileConfig.js'
 import { MapLayerControls } from './MapLayerControls.jsx'
 
 const routeModes = ['fastest', 'balanced', 'coolest']
@@ -58,8 +59,7 @@ export function MapView({
   const interactionEnabledRef = useRef(interactionEnabled)
   const routesRef = useRef(routes)
   const selectedModeRef = useRef(selectedMode)
-  const exposureRef = useRef(exposureGeoJSON)
-  const shadeRef = useRef(shadeGeoJSON)
+  const shadeScenarioRef = useRef(shadeScenario)
   const [status, setStatus] = useState('loading')
   const [mapReady, setMapReady] = useState(false)
   const [heatVisible, setHeatVisible] = useState(false)
@@ -70,8 +70,7 @@ export function MapView({
   interactionEnabledRef.current = interactionEnabled
   routesRef.current = routes
   selectedModeRef.current = selectedMode
-  exposureRef.current = exposureGeoJSON
-  shadeRef.current = shadeGeoJSON
+  shadeScenarioRef.current = shadeScenario
 
   useEffect(() => {
     setWorkerUrl(workerUrl)
@@ -86,14 +85,12 @@ export function MapView({
     mapRef.current = map
     map.addControl(new NavigationControl(), 'top-right')
     map.on('load', () => {
-      map.addSource('heat-exposure', {
-        type: 'geojson',
-        data: exposureRef.current ?? emptyGeoJSON,
-      })
+      map.addSource('heat-exposure', tileConfig.heatSource)
       map.addLayer({
         id: 'heat-exposure-line',
         type: 'line',
         source: 'heat-exposure',
+        'source-layer': tileConfig.sourceLayer,
         layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-width': exposureLayerPresentation.width,
@@ -106,20 +103,18 @@ export function MapView({
           ],
         },
       })
-      map.addSource('building-shade', {
-        type: 'geojson',
-        data: shadeRef.current ?? emptyGeoJSON,
-      })
+      map.addSource('building-shade', tileConfig.shadeSource)
       map.addLayer({
         id: 'building-shade-line',
         type: 'line',
         source: 'building-shade',
+        'source-layer': tileConfig.sourceLayer,
         layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': shadeLayerPresentation.color,
           'line-width': shadeLayerPresentation.width,
           'line-opacity': [
-            'interpolate', ['linear'], ['get', 'shadeScore'],
+            'interpolate', ['linear'], ['get', shadePropertyForScenario(shadeScenarioRef.current)],
             0, shadeLayerPresentation.minimumOpacity,
             1, shadeLayerPresentation.maximumOpacity,
           ],
@@ -226,20 +221,23 @@ export function MapView({
 
   useEffect(() => {
     if (!mapReady) return
-    mapRef.current?.getSource('heat-exposure')?.setData(exposureGeoJSON ?? emptyGeoJSON)
-  }, [exposureGeoJSON, mapReady])
-
-  useEffect(() => {
-    if (!mapReady) return
-    mapRef.current?.getSource('building-shade')?.setData(shadeGeoJSON ?? emptyGeoJSON)
-  }, [mapReady, shadeGeoJSON])
-
-  useEffect(() => {
-    if (!mapReady) return
     mapRef.current?.setLayoutProperty(
       'heat-exposure-line', 'visibility', heatVisible ? 'visible' : 'none',
     )
   }, [heatVisible, mapReady])
+
+  useEffect(() => {
+    if (!mapReady) return
+    mapRef.current?.setPaintProperty(
+      'building-shade-line',
+      'line-opacity',
+      [
+        'interpolate', ['linear'], ['get', shadePropertyForScenario(shadeScenario)],
+        0, shadeLayerPresentation.minimumOpacity,
+        1, shadeLayerPresentation.maximumOpacity,
+      ],
+    )
+  }, [mapReady, shadeScenario])
 
   useEffect(() => {
     if (!mapReady) return
