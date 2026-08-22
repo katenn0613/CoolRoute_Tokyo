@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Map, Marker, NavigationControl, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { defaultDataset, resolveDataset } from '../config/datasetConfig.js'
+import { demoArea } from '../config/demoArea.js'
 import { mapStyle } from '../config/mapStyle.js'
 import {
   exposureLayerPresentation,
@@ -39,7 +39,6 @@ function routeLayer(mode) {
 }
 
 export function MapView({
-  datasetId = defaultDataset.id,
   destination = null,
   exposureGeoJSON = null,
   interactionEnabled = false,
@@ -52,8 +51,6 @@ export function MapView({
   onShadeScenarioChange = () => {},
   start = null,
 }) {
-  const dataset = resolveDataset(datasetId)
-  const usesVectorEnvironment = dataset.runtime === 'binary-worker'
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const startMarkerRef = useRef(null)
@@ -62,8 +59,6 @@ export function MapView({
   const interactionEnabledRef = useRef(interactionEnabled)
   const routesRef = useRef(routes)
   const selectedModeRef = useRef(selectedMode)
-  const exposureRef = useRef(exposureGeoJSON)
-  const shadeRef = useRef(shadeGeoJSON)
   const shadeScenarioRef = useRef(shadeScenario)
   const [status, setStatus] = useState('loading')
   const [mapReady, setMapReady] = useState(false)
@@ -75,33 +70,27 @@ export function MapView({
   interactionEnabledRef.current = interactionEnabled
   routesRef.current = routes
   selectedModeRef.current = selectedMode
-  exposureRef.current = exposureGeoJSON
-  shadeRef.current = shadeGeoJSON
   shadeScenarioRef.current = shadeScenario
 
   useEffect(() => {
-    setStatus('loading')
-    setMapReady(false)
     setWorkerUrl(workerUrl)
     const map = new Map({
       container: containerRef.current,
       style: mapStyle,
-      center: dataset.area.center,
-      zoom: dataset.area.zoom,
-      maxBounds: dataset.area.boundingBox,
+      center: demoArea.center,
+      zoom: demoArea.zoom,
+      maxBounds: demoArea.boundingBox,
       attributionControl: true,
     })
     mapRef.current = map
     map.addControl(new NavigationControl(), 'top-right')
     map.on('load', () => {
-      map.addSource('heat-exposure', usesVectorEnvironment
-        ? tileConfig.heatSource
-        : { type: 'geojson', data: exposureRef.current ?? emptyGeoJSON })
+      map.addSource('heat-exposure', tileConfig.heatSource)
       map.addLayer({
         id: 'heat-exposure-line',
         type: 'line',
         source: 'heat-exposure',
-        ...(usesVectorEnvironment ? { 'source-layer': tileConfig.sourceLayer } : {}),
+        'source-layer': tileConfig.sourceLayer,
         layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-width': exposureLayerPresentation.width,
@@ -114,22 +103,18 @@ export function MapView({
           ],
         },
       })
-      map.addSource('building-shade', usesVectorEnvironment
-        ? tileConfig.shadeSource
-        : { type: 'geojson', data: shadeRef.current ?? emptyGeoJSON })
+      map.addSource('building-shade', tileConfig.shadeSource)
       map.addLayer({
         id: 'building-shade-line',
         type: 'line',
         source: 'building-shade',
-        ...(usesVectorEnvironment ? { 'source-layer': tileConfig.sourceLayer } : {}),
+        'source-layer': tileConfig.sourceLayer,
         layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': shadeLayerPresentation.color,
           'line-width': shadeLayerPresentation.width,
           'line-opacity': [
-            'interpolate', ['linear'], ['get', usesVectorEnvironment
-              ? shadePropertyForScenario(shadeScenarioRef.current)
-              : 'shadeScore'],
+            'interpolate', ['linear'], ['get', shadePropertyForScenario(shadeScenarioRef.current)],
             0, shadeLayerPresentation.minimumOpacity,
             1, shadeLayerPresentation.maximumOpacity,
           ],
@@ -137,7 +122,7 @@ export function MapView({
       })
       map.addSource('drinking-stations', {
         type: 'geojson',
-        data: assetPath(dataset.drinkingStationsPath),
+        data: assetPath('data/drinking_stations_tokyo23.geojson'),
       })
       map.addLayer({
         id: 'drinking-stations-points',
@@ -190,7 +175,7 @@ export function MapView({
       map.remove()
       mapRef.current = null
     }
-  }, [dataset])
+  }, [])
 
   useEffect(() => {
     const map = mapRef.current
@@ -235,17 +220,14 @@ export function MapView({
   }, [mapReady, routes, selectedMode])
 
   useEffect(() => {
-    if (!mapReady || usesVectorEnvironment) return
-    mapRef.current?.getSource('heat-exposure')?.setData(exposureGeoJSON ?? emptyGeoJSON)
-  }, [exposureGeoJSON, mapReady, usesVectorEnvironment])
+    if (!mapReady) return
+    mapRef.current?.setLayoutProperty(
+      'heat-exposure-line', 'visibility', heatVisible ? 'visible' : 'none',
+    )
+  }, [heatVisible, mapReady])
 
   useEffect(() => {
-    if (!mapReady || usesVectorEnvironment) return
-    mapRef.current?.getSource('building-shade')?.setData(shadeGeoJSON ?? emptyGeoJSON)
-  }, [mapReady, shadeGeoJSON, usesVectorEnvironment])
-
-  useEffect(() => {
-    if (!mapReady || !usesVectorEnvironment) return
+    if (!mapReady) return
     mapRef.current?.setPaintProperty(
       'building-shade-line',
       'line-opacity',
@@ -255,14 +237,7 @@ export function MapView({
         1, shadeLayerPresentation.maximumOpacity,
       ],
     )
-  }, [mapReady, shadeScenario, usesVectorEnvironment])
-
-  useEffect(() => {
-    if (!mapReady) return
-    mapRef.current?.setLayoutProperty(
-      'heat-exposure-line', 'visibility', heatVisible ? 'visible' : 'none',
-    )
-  }, [heatVisible, mapReady])
+  }, [mapReady, shadeScenario])
 
   useEffect(() => {
     if (!mapReady) return
@@ -321,7 +296,7 @@ export function MapView({
       </div>
       <div className="map-area-caption">
         <span>対象エリア</span>
-        <strong>{dataset.label}</strong>
+        <strong>東京23区</strong>
       </div>
     </section>
   )

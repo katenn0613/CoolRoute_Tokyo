@@ -40,7 +40,6 @@ function routingState(overrides = {}) {
     shadeGeoJSON: { type: 'FeatureCollection', features: [] },
     changeShadeScenario: vi.fn(), routingEnvironmentStatus: 'shade-aware',
     shadeCoverage: null,
-    datasetId: 'tokyo23-route-a', datasetLabel: '東京23区',
     ...overrides,
   }
 }
@@ -99,20 +98,6 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.getByRole('button', { name: '目的地を変更' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'リセット' })).toBeEnabled()
   }, 15000)
-
-  it('不再显示旧 Tokyo23 不完整覆盖警告', () => {
-    routingHook.state = routingState({
-      shadeCoverage: { coverageStatus: 'substantially-complete', processedSourceMeshCount: 664 },
-    })
-    render(<App />)
-    expect(screen.queryByText(/672メッシュ中664メッシュ、98.81%/)).not.toBeInTheDocument()
-  })
-
-  it('Tokyo23 Production 默认入口不再显示实验数据警告', () => {
-    render(<App />)
-    expect(screen.queryByText(/実験データ/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/20個の道路コンポーネント/)).not.toBeInTheDocument()
-  })
 
   it('三条 Route Card 显示日语指标，切换只调用 selectMode', () => {
     routingHook.state = readyState()

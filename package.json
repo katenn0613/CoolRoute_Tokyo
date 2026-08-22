@@ -8,14 +8,19 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "build:route-a": "npm run build:graph && npm run build:tiles",
+    "build:graph": "node scripts/build_binary_graph.mjs",
+    "build:tiles": "node scripts/build_route_tiles.mjs",
     "evaluate:routes": "node scripts/evaluate_routes.mjs",
     "benchmark:routing": "node scripts/benchmark_routing.mjs",
     "find:m5-cases": "node scripts/find_m5_route_cases.mjs"
   },
   "dependencies": {
+    "geojson-vt": "^4.0.3",
     "maplibre-gl": "6.4.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "vt-pbf": "^3.1.3"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "7.0.1",

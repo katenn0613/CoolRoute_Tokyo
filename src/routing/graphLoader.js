@@ -138,7 +138,7 @@ export function prepareGraph(payload) {
 
 export async function loadRoadGraph({
   fetchImpl = globalThis.fetch,
-  url = assetPath('data/graph_tokyo_core5.json'),
+  url = assetPath('data/graph_tokyo23.json'),
 } = {}) {
   const startedAt = performance.now()
   let response

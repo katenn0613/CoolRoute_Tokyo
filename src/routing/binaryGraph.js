@@ -1,8 +1,4 @@
-const HEADER_BYTES = 24
-const MAGIC = 0x52434752
-const SUPPORTED_VERSION = 1
 const COORDINATE_SCALE = 1e7
-const DEFAULT_SCENARIOS = Object.freeze(['09:00', '12:00', '15:00'])
 
 export class BinaryGraphError extends Error {
   constructor(message, options) {
@@ -11,43 +7,20 @@ export class BinaryGraphError extends Error {
   }
 }
 
-function normalizeBuffer(input) {
-  if (input instanceof ArrayBuffer) {
-    return { buffer: input, byteOffset: 0, byteLength: input.byteLength }
-  }
-  if (ArrayBuffer.isView(input)) {
-    return {
-      buffer: input.buffer,
-      byteOffset: input.byteOffset,
-      byteLength: input.byteLength,
-    }
-  }
-  throw new BinaryGraphError('二进制图必须是 ArrayBuffer 或 TypedArray。')
-}
-
-export function decodeBinaryGraph(input, { coordinateScale = COORDINATE_SCALE } = {}) {
-  const source = normalizeBuffer(input)
-  if (source.byteLength < HEADER_BYTES) {
-    throw new BinaryGraphError('二进制图大小不足，无法读取头部。')
-  }
-  const view = new DataView(source.buffer, source.byteOffset, source.byteLength)
+export function decodeBinaryGraph(buffer, { coordinateScale = COORDINATE_SCALE } = {}) {
+  const view = new DataView(
+    buffer instanceof ArrayBuffer ? buffer : buffer.buffer,
+    buffer instanceof ArrayBuffer ? 0 : buffer.byteOffset,
+    buffer.byteLength,
+  )
   const magic = view.getUint32(0, true)
-  if (magic !== MAGIC) throw new BinaryGraphError('不是有效的 CoolRoute 二进制图（magic 不匹配）。')
+  if (magic !== 0x52434752) throw new BinaryGraphError('不是有效的 CoolRoute 二进制图（magic 不匹配）。')
   const version = view.getUint32(4, true)
-  if (version !== SUPPORTED_VERSION) throw new BinaryGraphError(`不支持的二进制图版本：${version}`)
+  if (version !== 1) throw new BinaryGraphError(`不支持的二进制图版本：${version}`)
   const nodeCount = view.getUint32(8, true)
   const edgeCount = view.getUint32(12, true)
   const pointCount = view.getUint32(16, true)
   const scenarioCount = view.getUint32(20, true)
-  const expectedSize = HEADER_BYTES
-    + nodeCount * 8
-    + edgeCount * 20
-    + (edgeCount + 1) * 4
-    + pointCount * 8
-    + edgeCount * scenarioCount * 4
-  if (!Number.isSafeInteger(expectedSize) || expectedSize !== source.byteLength) {
-    throw new BinaryGraphError('二进制图大小与头部声明不一致。')
-  }
 
   const nodeLon = new Float64Array(nodeCount)
   const nodeLat = new Float64Array(nodeCount)
@@ -61,32 +34,42 @@ export function decodeBinaryGraph(input, { coordinateScale = COORDINATE_SCALE } 
   const geomLat = new Float64Array(pointCount)
   const shade = new Float32Array(edgeCount * scenarioCount)
 
-  let offset = HEADER_BYTES
-  for (let index = 0; index < nodeCount; index += 1) {
-    nodeLon[index] = view.getInt32(offset, true) / coordinateScale
-    nodeLat[index] = view.getInt32(offset + 4, true) / coordinateScale
+  let offset = 24
+  for (let i = 0; i < nodeCount; i += 1) {
+    nodeLon[i] = view.getInt32(offset, true) / coordinateScale
+    nodeLat[i] = view.getInt32(offset + 4, true) / coordinateScale
     offset += 8
   }
-  for (let index = 0; index < edgeCount; index += 1) {
-    edgeSource[index] = view.getInt32(offset, true)
-    edgeTarget[index] = view.getInt32(offset + 4, true)
-    edgeLength[index] = view.getFloat32(offset + 8, true)
-    edgeGreen[index] = view.getFloat32(offset + 12, true)
-    edgeWater[index] = view.getFloat32(offset + 16, true)
+  for (let i = 0; i < edgeCount; i += 1) {
+    edgeSource[i] = view.getInt32(offset, true)
+    edgeTarget[i] = view.getInt32(offset + 4, true)
+    edgeLength[i] = view.getFloat32(offset + 8, true)
+    edgeGreen[i] = view.getFloat32(offset + 12, true)
+    edgeWater[i] = view.getFloat32(offset + 16, true)
     offset += 20
   }
-  for (let index = 0; index <= edgeCount; index += 1) {
-    geometryOffset[index] = view.getUint32(offset, true)
+  for (let i = 0; i <= edgeCount; i += 1) {
+    geometryOffset[i] = view.getUint32(offset, true)
     offset += 4
   }
-  for (let index = 0; index < pointCount; index += 1) {
-    geomLon[index] = view.getInt32(offset, true) / coordinateScale
-    geomLat[index] = view.getInt32(offset + 4, true) / coordinateScale
+  for (let i = 0; i < pointCount; i += 1) {
+    geomLon[i] = view.getInt32(offset, true) / coordinateScale
+    geomLat[i] = view.getInt32(offset + 4, true) / coordinateScale
     offset += 8
   }
-  for (let index = 0; index < shade.length; index += 1) {
-    shade[index] = view.getFloat32(offset, true)
+  for (let i = 0; i < edgeCount * scenarioCount; i += 1) {
+    shade[i] = view.getFloat32(offset, true)
     offset += 4
+  }
+
+  const expectedSize = 24
+    + nodeCount * 8
+    + edgeCount * 20
+    + (edgeCount + 1) * 4
+    + pointCount * 8
+    + edgeCount * scenarioCount * 4
+  if (offset !== expectedSize || offset !== buffer.byteLength) {
+    throw new BinaryGraphError('二进制图大小与头部声明不一致。')
   }
 
   return {
@@ -109,7 +92,7 @@ export function decodeBinaryGraph(input, { coordinateScale = COORDINATE_SCALE } 
   }
 }
 
-export function scenarioIndex(scenario, scenarioNames = DEFAULT_SCENARIOS) {
+export function scenarioIndex(scenario, scenarioNames = ['09:00', '12:00', '15:00']) {
   const index = scenarioNames.indexOf(scenario)
   if (index < 0) throw new RangeError(`不支持的 Shade 场景：${scenario}`)
   return index
@@ -118,18 +101,20 @@ export function scenarioIndex(scenario, scenarioNames = DEFAULT_SCENARIOS) {
 export function edgeGeometry(graph, edgeIndex) {
   const start = graph.geometryOffset[edgeIndex]
   const end = graph.geometryOffset[edgeIndex + 1]
-  const geometry = []
-  for (let index = start; index < end; index += 1) {
-    geometry.push([graph.geomLon[index], graph.geomLat[index]])
+  const points = []
+  for (let i = start; i < end; i += 1) {
+    points.push([graph.geomLon[i], graph.geomLat[i]])
   }
-  return geometry
+  return points
 }
 
 export function materializeEdge(graph, edgeIndex) {
+  const source = graph.edgeSource[edgeIndex]
+  const target = graph.edgeTarget[edgeIndex]
   return {
     id: String(edgeIndex),
-    source: String(graph.edgeSource[edgeIndex]),
-    target: String(graph.edgeTarget[edgeIndex]),
+    source: String(source),
+    target: String(target),
     length: graph.edgeLength[edgeIndex],
     green_score: graph.edgeGreen[edgeIndex],
     water_penalty: graph.edgeWater[edgeIndex],
@@ -138,6 +123,6 @@ export function materializeEdge(graph, edgeIndex) {
 }
 
 export function edgeShadeScore(graph, edgeIndex, scenario) {
-  if (graph.scenarioCount === 0) return null
-  return graph.shade[edgeIndex * graph.scenarioCount + scenarioIndex(scenario)]
+  const index = scenarioIndex(scenario)
+  return graph.shade[edgeIndex * graph.scenarioCount + index]
 }

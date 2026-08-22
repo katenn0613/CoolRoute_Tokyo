@@ -6,23 +6,23 @@ import { RouteCalculationError } from './dijkstra.js'
 export function toUserRoutingMessage(error, context = 'interaction') {
   if (
     context === 'graph-load'
-    || error?.code === 'graph-load'
     || error instanceof GraphLoadError
     || error instanceof GraphSchemaError
+    || error?.code === 'graph-load'
   ) {
     return '道路データの読み込みに失敗しました。'
   }
   if (
-    error?.code === 'snap'
-    || error instanceof PointOutsideDemoAreaError
+    error instanceof PointOutsideDemoAreaError
     || error instanceof NearestNodeError
+    || error?.code === 'snap'
   ) {
     return '対象エリア内の道路付近を選択してください。'
   }
   if (
-    error?.code === 'route'
-    || error instanceof RouteBundleError
+    error instanceof RouteBundleError
     || error instanceof RouteCalculationError
+    || error?.code === 'route'
   ) {
     return 'ルートを見つけることができませんでした。'
   }

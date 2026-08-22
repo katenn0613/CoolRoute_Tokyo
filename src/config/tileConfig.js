@@ -4,6 +4,8 @@ const MIN_ZOOM = 10
 const MAX_ZOOM = 13
 
 export const tileConfig = Object.freeze({
+  minzoom: MIN_ZOOM,
+  maxzoom: MAX_ZOOM,
   sourceLayer: 'default',
   heatSource: Object.freeze({
     type: 'vector',

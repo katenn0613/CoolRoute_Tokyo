@@ -26,7 +26,7 @@ function edgeLength(edge) {
   return edge.length
 }
 
-export function calculateHeatExposureFromScores(greenScore, waterPenalty, overrides = {}) {
+export function calculateEdgeHeatExposure(edge, overrides = {}) {
   const config = mergedConfig(overrides)
   if (
     !Number.isFinite(config.greenWeight)
@@ -37,39 +37,11 @@ export function calculateHeatExposureFromScores(greenScore, waterPenalty, overri
   ) {
     throw new RangeError('Exposure weights 必须是非负有限数且总和为 1。')
   }
-  const values = { id: 'score-input', green_score: greenScore, water_penalty: waterPenalty }
-  const boundedGreenScore = boundedEdgeField(values, 'green_score')
-  const boundedWaterPenalty = boundedEdgeField(values, 'water_penalty')
-  const exposure = config.greenWeight * (1 - boundedGreenScore)
-    + config.waterWeight * boundedWaterPenalty
+  const greenScore = boundedEdgeField(edge, 'green_score')
+  const waterPenalty = boundedEdgeField(edge, 'water_penalty')
+  const exposure = config.greenWeight * (1 - greenScore) + config.waterWeight * waterPenalty
   if (!Number.isFinite(exposure) || exposure < -1e-12 || exposure > 1 + 1e-12) {
     throw new RangeError(`Edge ${edge?.id ?? 'unknown'} 的 Heat Exposure Score 无效。`)
-  }
-  return Math.min(1, Math.max(0, exposure))
-}
-
-export function calculateEdgeHeatExposure(edge, overrides = {}) {
-  return calculateHeatExposureFromScores(
-    boundedEdgeField(edge, 'green_score'),
-    boundedEdgeField(edge, 'water_penalty'),
-    overrides,
-  )
-}
-
-export function calculateShadeAwareHeatExposureFromScores(
-  greenScore,
-  waterPenalty,
-  shadeScore,
-  overrides = {},
-) {
-  const config = mergedConfig(overrides)
-  const values = { id: 'score-input', shade_score: shadeScore }
-  const boundedShadeScore = boundedEdgeField(values, 'shade_score')
-  const baseHeatExposure = calculateHeatExposureFromScores(greenScore, waterPenalty, config)
-  const exposure = (1 - config.shadeContributionWeight) * baseHeatExposure
-    + config.shadeContributionWeight * (1 - boundedShadeScore)
-  if (!Number.isFinite(exposure) || exposure < -1e-12 || exposure > 1 + 1e-12) {
-    throw new RangeError('Shade-aware Heat Exposure Score 无效。')
   }
   return Math.min(1, Math.max(0, exposure))
 }
@@ -79,13 +51,10 @@ export function calculateShadeAwareHeatExposure(edge, shadeContext, overrides = 
   if (shadeContext?.shadeWeight !== config.shadeContributionWeight) {
     throw new RangeError(`Shade Context weight 必须为 ${config.shadeContributionWeight}。`)
   }
+  const baseHeatExposure = calculateEdgeHeatExposure(edge, config)
   const shadeScore = getEdgeShadeScore(shadeContext, edge?.id)
-  const exposure = calculateShadeAwareHeatExposureFromScores(
-    edge.green_score,
-    edge.water_penalty,
-    shadeScore,
-    config,
-  )
+  const exposure = (1 - shadeContext.shadeWeight) * baseHeatExposure
+    + shadeContext.shadeWeight * (1 - shadeScore)
   if (!Number.isFinite(exposure) || exposure < -1e-12 || exposure > 1 + 1e-12) {
     throw new RangeError(`Edge ${edge?.id ?? 'unknown'} 的 Shade-aware Heat Exposure Score 无效。`)
   }

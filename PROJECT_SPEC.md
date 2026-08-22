@@ -12,9 +12,7 @@ CoolRoute Tokyo 是一款面向东京高温环境的浏览器端步行路线推�
 
 M5 的 `maximumExtraDistanceRatio` 默认为 `null`，因此当前没有启用强制绕行上限。
 
-原始黑客松 Demo 的 2–3 km 数据继续用于回归；当前正式 Production 默认覆盖东京23区，并通过 Binary Graph、Web Worker 与静态 MVT 在 GitHub Pages 中运行。Start / Destination 当前限制在 Tokyo23 Runtime Bounding Box 内。
-
-Tokyo23 图包含 20 个弱连通组件，跨组件路线必须明确返回不可达；Binary Runtime 初始化失败时自动回退经过验证的 Core5 JSON Runtime。仓库保留最终 Binary/MVT 及机器可读 Metadata，但不保留约 288MB 的构建源 JSON。
+第一版黑客松 Demo 只覆盖东京约 2–3 km 的一个研究区域，它不是全市生产级寻路服务。
 
 ## 2. 系统架构
 
@@ -32,7 +30,6 @@ Tokyo23 图包含 20 个弱连通组件，跨组件路线必须明确返回不�
 - 验证和归一化真实环境开放数据；
 - 将可用环境属性空间连接到道路段；
 - 计算或准备边级模型输入；
-- 使用 Project PLATEAU Geometry 离线预计算固定秋分日 09:00、12:00、15:00 的 Building Shade Sidecar；
 - 导出紧凑的浏览器可读静态资源和来源元数据。
 
 允许的 GIS 工具包括 GeoPandas、Shapely、OSMnx、NetworkX、Pandas 和 PyArrow。Python 不属于部署后的运行环境。
@@ -63,7 +60,7 @@ Tokyo23 图包含 20 个弱连通组件，跨组件路线必须明确返回不�
 ### P0：黑客松必需
 
 - 使用静态 GitHub Pages 部署，不运行线上后端。
-- 一个浏览器可承载的东京23区 Production 范围；Core5 与原 2–3 km Demo 数据保留用于回归和回退。
+- 一个稳定的东京 Demo 区域，大约 2–3 km。
 - 支持起点和终点选择的 MapLibre 地图。
 - 使用已记录的真实数据源离线生成浏览器可读步行图。
 - 在浏览器端比较 Fastest Route、Balanced Route 和 Coolest Route。
@@ -128,21 +125,9 @@ MapLibre 渲染路线，UI 报告比较结果和数据缺口
 edgeHeatExposure = 0.7 × (1 - green_score) + 0.3 × water_penalty
 ```
 
-`green_score` 和 `water_penalty` 来自 M4 已验证的正式 Edge。字段缺失、NaN、Inf 或越界必须停止计算，不允许 silent fallback。M5 Base Model 没有直接使用气温、湿度、太阳辐射、实时阴影或个人生理条件。M10.5 仅为 Balanced / Coolest 增加固定 Building Shade 环境因素，Fastest 与 M5 Base 指标保持不变。
+`green_score` 和 `water_penalty` 来自 M4 已验证的正式 Edge。字段缺失、NaN、Inf 或越界必须停止计算，不允许 silent fallback。当前模型没有直接使用气温、湿度、太阳辐射、实时阴影或个人生理条件。
 
-### 6.2 Shade-aware 边级指标
-
-固定 `shadeContributionWeight = 0.25`：
-
-```text
-shadeAwareHeatExposure
-= 0.75 × edgeHeatExposure
-+ 0.25 × (1 - shade_score)
-```
-
-`shade_score` 来自独立 Shade Schema `1.0.0` Sidecar，按 09:00、12:00、15:00 场景读取，不写入 Graph Schema `1.1.0`。Sidecar 未加载时不得伪装为 `shade_score = 0`；UI 必须明确回退为 Green/Water Base Model。
-
-### 6.3 路线级指标
+### 6.2 路线级指标
 
 路线显示的 **Heat Exposure Score** 是单位距离上的平均模型环境热暴露强度：
 

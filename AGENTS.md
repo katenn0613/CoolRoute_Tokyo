@@ -7,7 +7,7 @@
 - CoolRoute Tokyo 是一款面向东京高温环境的步行路线推荐 Web 应用。
 - Demo 只比较三种路线意图：**Fastest Route**、**Balanced Route** 和 **Coolest Route**。
 - 路线比较基于道路网各边的模型估计热暴露。
-- 原始 Demo 的 2–3 km 数据与东京都心5区数据保留用于回归及故障回退；当前正式 Production 默认范围为东京23区，使用已核验的 Binary/Worker/MVT Runtime。
+- 第一版 Demo 必须限定在东京约 2–3 km 的小范围研究区域内。
 - 优先确保黑客松 Demo 稳定，不要过早设计大型生产系统。
 
 ## 必须遵守的架构

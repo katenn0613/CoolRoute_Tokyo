@@ -1,6 +1,6 @@
 export const routingConfig = Object.freeze({
   walkingSpeedMetersPerSecond: 1.4,
-  maximumSnapDistanceMeters: 200,
+  maximumSnapDistanceMeters: 300,
   greenWeight: 0.7,
   waterWeight: 0.3,
   shadeContributionWeight: 0.25,

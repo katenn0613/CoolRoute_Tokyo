@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { demoArea } from '../../src/config/demoArea.js'
-import tokyo23Area from '../../config/tokyo23_area.json'
 import { routePresentation } from '../../src/config/presentationConfig.js'
 import { MapView } from '../../src/components/MapView.jsx'
 
@@ -126,8 +125,6 @@ describe('M6 MapView', () => {
     expect(screen.getByLabelText('暑さ曝露レイヤー')).not.toBeChecked()
     expect(screen.getByLabelText('建物による推定日陰')).not.toBeChecked()
     expect(screen.getByLabelText('給水スポット')).not.toBeChecked()
-    expect(screen.getByLabelText('日陰条件').closest('label'))
-      .toHaveClass('shade-scenario-control')
     fireEvent.click(screen.getByLabelText('暑さ曝露レイヤー'))
     fireEvent.click(screen.getByLabelText('建物による推定日陰'))
     fireEvent.click(screen.getByLabelText('給水スポット'))
@@ -162,7 +159,7 @@ describe('M6 MapView', () => {
     )
     expect(screen.getByText('地図を読み込んでいます…')).toBeInTheDocument()
     expect(maplibre.mapConstructor).toHaveBeenCalledWith(expect.objectContaining({
-      center: tokyo23Area.center, zoom: tokyo23Area.zoom, maxBounds: tokyo23Area.boundingBox,
+      center: demoArea.center, zoom: demoArea.zoom, maxBounds: demoArea.boundingBox,
     }))
 
     act(() => maplibre.handlers.load())
@@ -173,45 +170,6 @@ describe('M6 MapView', () => {
     expect(maplibre.markerInstances).toHaveLength(2)
     expect(maplibre.markerInstances[0].setLngLat).toHaveBeenCalledWith([139.75, 35.68])
     expect(maplibre.markerInstances[1].setLngLat).toHaveBeenCalledWith([139.753, 35.682])
-    expect(screen.getByText('東京23区')).toBeInTheDocument()
-  })
-
-  it('uses MVT environment layers for the default Tokyo23 Production dataset', () => {
-    render(<MapView shadeStatus="ready" />)
-    act(() => maplibre.handlers.load())
-
-    expect(maplibre.addSource).toHaveBeenCalledWith(
-      'heat-exposure', expect.objectContaining({ type: 'vector' }),
-    )
-    expect(maplibre.addSource).toHaveBeenCalledWith(
-      'building-shade', expect.objectContaining({ type: 'vector' }),
-    )
-    expect(maplibre.addSource).toHaveBeenCalledWith(
-      'drinking-stations', expect.objectContaining({
-        data: expect.stringContaining('drinking_stations_tokyo23.geojson'),
-      }),
-    )
-    expect(screen.getByText('東京23区')).toBeInTheDocument()
-  })
-
-  it('recreates the map when the active dataset falls back to Core5', () => {
-    const { rerender } = render(
-      <MapView datasetId="tokyo23-route-a" shadeStatus="ready" />,
-    )
-
-    expect(maplibre.mapConstructor).toHaveBeenCalledTimes(1)
-    expect(maplibre.mapConstructor).toHaveBeenLastCalledWith(expect.objectContaining({
-      maxBounds: [139.559, 35.528, 139.918, 35.818],
-    }))
-
-    rerender(<MapView datasetId="tokyo-core5" shadeStatus="ready" />)
-
-    expect(maplibre.remove).toHaveBeenCalledTimes(1)
-    expect(maplibre.mapConstructor).toHaveBeenCalledTimes(2)
-    expect(maplibre.mapConstructor).toHaveBeenLastCalledWith(expect.objectContaining({
-      maxBounds: demoArea.boundingBox,
-    }))
-    expect(screen.getByText('東京都心5区')).toBeInTheDocument()
   })
 
   it('错误时隐藏技术详情并在卸载时移除 Map', () => {

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { requestedDatasetId, resolveDataset } from '../config/datasetConfig.js'
+import { demoArea } from '../config/demoArea.js'
 import { routingConfig } from '../config/routingConfig.js'
 import { shadeConfig } from '../config/shadeConfig.js'
-import { useShadeLayer } from '../shade/useShadeLayer.js'
 import { calculateRouteBundle } from './calculateRouteBundle.js'
 import { buildExposureFeatureCollection } from './exposureLayer.js'
 import { loadRoadGraph } from './graphLoader.js'
-import { findNearestNode, PointOutsideDemoAreaError } from './nearestNode.js'
+import { findNearestNode } from './nearestNode.js'
+import { useShadeLayer } from '../shade/useShadeLayer.js'
 import { createRouteEngine } from './routeEngine.js'
-import { isPointInServiceArea, loadServiceArea } from './serviceArea.js'
 import {
   PHASES,
   createInitialSelectionState,
@@ -19,129 +18,85 @@ import { toUserRoutingMessage } from './userMessages.js'
 
 class RoutingInteractionError extends Error {}
 
-export function useRouteBundle({
-  datasetId = requestedDatasetId(),
-  loadGraph,
-  loadShade,
-  loadArea = null,
-  engine,
-  fallbackLoadGraph,
-  fallbackLoadArea,
-} = {}) {
-  const requestedDataset = resolveDataset(datasetId)
-  const startsInWorkerMode = requestedDataset.runtime === 'binary-worker' && loadGraph === undefined
-  const [activeDataset, setActiveDataset] = useState(requestedDataset)
-  const workerMode = startsInWorkerMode && activeDataset.runtime === 'binary-worker'
+export function useRouteBundle({ loadGraph, loadShade, engine } = {}) {
+  const workerMode = loadGraph === undefined && loadShade === undefined
   const engineRef = useRef(null)
-  if (startsInWorkerMode && engineRef.current === null) {
-    engineRef.current = engine ?? createRouteEngine({
-      boundingBox: requestedDataset.area.boundingBox,
-    })
+  if (workerMode && engineRef.current === null) {
+    engineRef.current = engine ?? createRouteEngine({ boundingBox: demoArea.boundingBox })
   }
-
   const graphRef = useRef(null)
-  const serviceAreaRef = useRef(null)
   const busyRef = useRef(false)
   const [selection, dispatch] = useReducer(selectionReducer, undefined, createInitialSelectionState)
   const [graphState, setGraphState] = useState({ status: 'loading', loadTimeMs: null, error: null })
   const [exposureGeoJSON, setExposureGeoJSON] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
-  const [isSnapping, setIsSnapping] = useState(false)
-  const [workerShade, setWorkerShade] = useState({ ready: false, coverage: null })
-  const [workerShadeScenario, setWorkerShadeScenario] = useState(shadeConfig.defaultScenario)
+  const [shadeReady, setShadeReady] = useState(false)
+  const [shadeCoverage, setShadeCoverage] = useState(null)
+  const [shadeScenarioState, setShadeScenarioState] = useState(shadeConfig.defaultScenario)
   const shadeState = useShadeLayer({
-    graph: workerMode || graphState.status !== 'ready' ? null : graphRef.current,
+    graph: workerMode ? null : graphState.status === 'ready' ? graphRef.current : null,
     loadShade,
   })
+
   const selectionRef = useRef(selection)
   selectionRef.current = selection
-  const shadeScenarioRef = useRef(workerShadeScenario)
-  shadeScenarioRef.current = workerShadeScenario
+  const shadeScenarioRef = useRef(shadeScenarioState)
+  shadeScenarioRef.current = shadeScenarioState
 
   useEffect(() => {
     let active = true
     setGraphState({ status: 'loading', loadTimeMs: null, error: null })
-
-    const commitLegacyGraph = (dataset, graphResult, serviceArea) => {
-      if (!active) return
-      graphRef.current = graphResult.graph
-      serviceAreaRef.current = serviceArea
-      setActiveDataset(dataset)
-      setExposureGeoJSON(buildExposureFeatureCollection(graphResult.graph, routingConfig))
-      setGraphState({ status: 'ready', loadTimeMs: graphResult.loadTimeMs, error: null })
-    }
-    const rejectGraph = (error) => {
-      if (!active) return
-      graphRef.current = null
-      serviceAreaRef.current = null
-      setExposureGeoJSON(null)
-      setGraphState({
-        status: 'error',
-        loadTimeMs: null,
-        error: toUserRoutingMessage(error, 'graph-load'),
-      })
-    }
-
-    if (startsInWorkerMode) {
+    if (workerMode) {
       engineRef.current.init()
         .then((info) => {
           if (!active) return
-          setWorkerShade({ ready: info.shadeAvailable === true, coverage: info.shadeCoverage ?? null })
+          setShadeReady(info.shadeAvailable ?? true)
+          if (info.shadeCoverage) setShadeCoverage(info.shadeCoverage)
           setGraphState({ status: 'ready', loadTimeMs: info.loadTimeMs, error: null })
         })
-        .catch(() => {
-          const fallbackDataset = resolveDataset(requestedDataset.fallbackId)
-          const graphLoader = fallbackLoadGraph ?? loadRoadGraph
-          const areaLoader = fallbackLoadArea ?? (fallbackLoadGraph ? null : loadServiceArea)
-          return Promise.all([
-            graphLoader(),
-            areaLoader ? areaLoader() : Promise.resolve(null),
-          ]).then(([graphResult, serviceArea]) => {
-            commitLegacyGraph(fallbackDataset, graphResult, serviceArea)
+        .catch((error) => {
+          if (!active) return
+          setGraphState({
+            status: 'error',
+            loadTimeMs: null,
+            error: toUserRoutingMessage(error, 'graph-load'),
           })
         })
-        .catch(rejectGraph)
-    } else {
-      const graphLoader = loadGraph ?? loadRoadGraph
-      const areaLoader = loadArea ?? (graphLoader === loadRoadGraph ? loadServiceArea : null)
-      Promise.all([
-        graphLoader(),
-        areaLoader ? areaLoader() : Promise.resolve(null),
-      ])
-        .then(([graphResult, serviceArea]) => {
-          commitLegacyGraph(requestedDataset, graphResult, serviceArea)
-        })
-        .catch(rejectGraph)
+      return () => { active = false }
     }
-
+    loadGraph()
+      .then(({ graph, loadTimeMs }) => {
+        if (!active) return
+        graphRef.current = graph
+        setExposureGeoJSON(buildExposureFeatureCollection(graph, routingConfig))
+        setGraphState({ status: 'ready', loadTimeMs, error: null })
+      })
+      .catch((error) => {
+        if (!active) return
+        graphRef.current = null
+        setExposureGeoJSON(null)
+        setGraphState({
+          status: 'error',
+          loadTimeMs: null,
+          error: toUserRoutingMessage(error, 'graph-load'),
+        })
+      })
     return () => {
       active = false
       graphRef.current = null
-      serviceAreaRef.current = null
-      if (startsInWorkerMode) engineRef.current?.dispose()
     }
-  }, [
-    fallbackLoadArea,
-    fallbackLoadGraph,
-    loadArea,
-    loadGraph,
-    requestedDataset,
-    startsInWorkerMode,
-  ])
+  }, [loadGraph, workerMode])
 
+  // ---- Legacy（同步）路径：测试注入 loadGraph/loadShade 时使用 ----
   const snapPointSync = useCallback((point) => {
     if (!graphRef.current) throw new RoutingInteractionError('Road Graph is not ready.')
-    if (serviceAreaRef.current && !isPointInServiceArea(point, serviceAreaRef.current)) {
-      throw new PointOutsideDemoAreaError()
-    }
-    const snapped = findNearestNode(graphRef.current, point, {
-      boundingBox: activeDataset.area.boundingBox,
+    return findNearestNode(graphRef.current, point, {
+      boundingBox: demoArea.boundingBox,
       maximumDistanceMeters: routingConfig.maximumSnapDistanceMeters,
     })
-    return { ...snapped, clickedPoint: [...point] }
-  }, [activeDataset.area.boundingBox])
+  }, [])
 
-  const calculateSync = useCallback((start, destination, shadeContext = shadeState.routingContext) => {
+  const calculateSync = useCallback((start, destination, shadeContext) => {
     setIsCalculating(true)
     try {
       return calculateRouteBundle(
@@ -149,15 +104,19 @@ export function useRouteBundle({
         start.node.id,
         destination.node.id,
         routingConfig,
-        shadeContext,
+        shadeContext ?? null,
       )
     } finally {
       setIsCalculating(false)
     }
-  }, [shadeState.routingContext])
+  }, [])
 
+  // ---- Worker（异步）路径：生产模式使用 ----
   const snapPointAsync = useCallback(async (point) => {
-    const snapped = await engineRef.current.snap(point, routingConfig.maximumSnapDistanceMeters)
+    const snapped = await engineRef.current.snap(
+      point,
+      routingConfig.maximumSnapDistanceMeters,
+    )
     return {
       node: {
         id: String(snapped.index),
@@ -186,118 +145,144 @@ export function useRouteBundle({
   const handleWorkerMapClick = useCallback(async (point) => {
     if (busyRef.current) return
     busyRef.current = true
-    setIsSnapping(true)
     try {
-      const current = selectionRef.current
-      const candidate = await snapPointAsync(point)
-      if (current.phase === PHASES.AWAITING_START) {
+      const phase = selectionRef.current.phase
+      if (phase === PHASES.AWAITING_START) {
+        const candidate = await snapPointAsync(point)
         dispatch({ type: 'START_COMMITTED', start: candidate })
-      } else if (current.phase === PHASES.AWAITING_DESTINATION) {
-        const route = await calculateAsync(current.start, candidate)
+        return
+      }
+      if (phase === PHASES.AWAITING_DESTINATION) {
+        const candidate = await snapPointAsync(point)
+        const route = await calculateAsync(selectionRef.current.start, candidate)
         dispatch({ type: 'DESTINATION_AND_ROUTE_COMMITTED', destination: candidate, route })
-      } else if (current.phase === PHASES.SELECTING_START) {
-        const route = await calculateAsync(candidate, current.destination)
+        return
+      }
+      if (phase === PHASES.SELECTING_START) {
+        const candidate = await snapPointAsync(point)
+        const route = await calculateAsync(candidate, selectionRef.current.destination)
         dispatch({ type: 'START_AND_ROUTE_COMMITTED', start: candidate, route })
-      } else if (current.phase === PHASES.SELECTING_DESTINATION) {
-        const route = await calculateAsync(current.start, candidate)
+        return
+      }
+      if (phase === PHASES.SELECTING_DESTINATION) {
+        const candidate = await snapPointAsync(point)
+        const route = await calculateAsync(selectionRef.current.start, candidate)
         dispatch({ type: 'DESTINATION_AND_ROUTE_COMMITTED', destination: candidate, route })
       }
     } catch (error) {
       dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
     } finally {
-      setIsSnapping(false)
       busyRef.current = false
     }
   }, [calculateAsync, snapPointAsync])
 
   const handleMapClick = useCallback((point) => {
-    if (graphState.status !== 'ready' || selection.phase === PHASES.ROUTE_READY) return undefined
-    if (workerMode) return handleWorkerMapClick(point)
+    if (graphState.status !== 'ready' || selection.phase === PHASES.ROUTE_READY) return
+    if (workerMode) {
+      handleWorkerMapClick(point)
+      return
+    }
     try {
       const candidate = snapPointSync(point)
       if (selection.phase === PHASES.AWAITING_START) {
         dispatch({ type: 'START_COMMITTED', start: candidate })
-      } else if (selection.phase === PHASES.AWAITING_DESTINATION) {
+        return
+      }
+      if (selection.phase === PHASES.AWAITING_DESTINATION) {
         dispatch({
-          type: 'DESTINATION_AND_ROUTE_COMMITTED', destination: candidate,
+          type: 'DESTINATION_AND_ROUTE_COMMITTED',
+          destination: candidate,
           route: calculateSync(selection.start, candidate),
         })
-      } else if (selection.phase === PHASES.SELECTING_START) {
+        return
+      }
+      if (selection.phase === PHASES.SELECTING_START) {
         dispatch({
-          type: 'START_AND_ROUTE_COMMITTED', start: candidate,
+          type: 'START_AND_ROUTE_COMMITTED',
+          start: candidate,
           route: calculateSync(candidate, selection.destination),
         })
-      } else if (selection.phase === PHASES.SELECTING_DESTINATION) {
+        return
+      }
+      if (selection.phase === PHASES.SELECTING_DESTINATION) {
         dispatch({
-          type: 'DESTINATION_AND_ROUTE_COMMITTED', destination: candidate,
+          type: 'DESTINATION_AND_ROUTE_COMMITTED',
+          destination: candidate,
           route: calculateSync(selection.start, candidate),
         })
       }
     } catch (error) {
       dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
     }
-    return undefined
-  }, [calculateSync, graphState.status, handleWorkerMapClick, selection, snapPointSync, workerMode])
+  }, [calculateSync, graphState.status, selection, snapPointSync, workerMode, handleWorkerMapClick])
 
   const selectStart = useCallback(() => dispatch({ type: 'SELECT_START_REQUESTED' }), [])
-  const selectDestination = useCallback(() => dispatch({ type: 'SELECT_DESTINATION_REQUESTED' }), [])
+  const selectDestination = useCallback(
+    () => dispatch({ type: 'SELECT_DESTINATION_REQUESTED' }),
+    [],
+  )
   const reset = useCallback(() => dispatch({ type: 'RESET' }), [])
-  const selectMode = useCallback((mode) => dispatch({ type: 'ROUTE_MODE_SELECTED', mode }), [])
+  const selectMode = useCallback(
+    (mode) => dispatch({ type: 'ROUTE_MODE_SELECTED', mode }),
+    [],
+  )
 
   const recalculate = useCallback(() => {
-    const current = selectionRef.current
-    if (!current.start || !current.destination || graphState.status !== 'ready') return undefined
-    if (!workerMode) {
-      try {
-        dispatch({ type: 'ROUTE_RECALCULATED', route: calculateSync(current.start, current.destination) })
-      } catch (error) {
-        dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
-      }
-      return undefined
+    if (workerMode) {
+      const { start, destination } = selectionRef.current
+      if (!start || !destination || graphState.status !== 'ready') return
+      if (busyRef.current) return
+      busyRef.current = true
+      calculateAsync(start, destination, shadeScenarioRef.current)
+        .then((route) => dispatch({ type: 'ROUTE_RECALCULATED', route }))
+        .catch((error) => dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) }))
+        .finally(() => { busyRef.current = false })
+      return
     }
-    if (busyRef.current) return undefined
-    busyRef.current = true
-    return calculateAsync(current.start, current.destination, shadeScenarioRef.current)
-      .then((route) => dispatch({ type: 'ROUTE_RECALCULATED', route }))
-      .catch((error) => dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) }))
-      .finally(() => { busyRef.current = false })
-  }, [calculateAsync, calculateSync, graphState.status, workerMode])
+    if (!selection.start || !selection.destination || graphState.status !== 'ready') return
+    try {
+      dispatch({
+        type: 'ROUTE_RECALCULATED',
+        route: calculateSync(selection.start, selection.destination),
+      })
+    } catch (error) {
+      dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
+    }
+  }, [calculateAsync, calculateSync, graphState.status, selection.destination, selection.start, workerMode])
 
   const changeShadeScenario = useCallback((nextScenario) => {
-    const current = selectionRef.current
-    if (!workerMode) {
-      try {
-        const candidateContext = shadeState.createRoutingContext(nextScenario)
-        if (current.start && current.destination && graphState.status === 'ready') {
-          dispatch({
-            type: 'ROUTE_RECALCULATED',
-            route: calculateSync(current.start, current.destination, candidateContext),
-          })
-        }
-        shadeState.commitScenario(nextScenario)
-      } catch (error) {
-        dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
+    if (workerMode) {
+      setShadeScenarioState(nextScenario)
+      const { start, destination } = selectionRef.current
+      if (!start || !destination || graphState.status !== 'ready') return
+      if (busyRef.current) return
+      busyRef.current = true
+      calculateAsync(start, destination, nextScenario)
+        .then((route) => dispatch({ type: 'ROUTE_RECALCULATED', route }))
+        .catch((error) => dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) }))
+        .finally(() => { busyRef.current = false })
+      return
+    }
+    try {
+      const candidateContext = shadeState.createRoutingContext(nextScenario)
+      if (selection.start && selection.destination && graphState.status === 'ready') {
+        dispatch({
+          type: 'ROUTE_RECALCULATED',
+          route: calculateSync(selection.start, selection.destination, candidateContext),
+        })
       }
-      return undefined
+      shadeState.commitScenario(nextScenario)
+    } catch (error) {
+      dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
     }
-    if (!shadeConfig.scenarios.includes(nextScenario) || busyRef.current) return undefined
-    if (!current.start || !current.destination || graphState.status !== 'ready') {
-      setWorkerShadeScenario(nextScenario)
-      return undefined
-    }
-    busyRef.current = true
-    return calculateAsync(current.start, current.destination, nextScenario)
-      .then((route) => {
-        dispatch({ type: 'ROUTE_RECALCULATED', route })
-        setWorkerShadeScenario(nextScenario)
-      })
-      .catch((error) => dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) }))
-      .finally(() => { busyRef.current = false })
-  }, [calculateAsync, calculateSync, graphState.status, shadeState, workerMode])
+  }, [calculateSync, graphState.status, selection.destination, selection.start, shadeState, workerMode, calculateAsync])
 
   useEffect(() => {
     if (
-      workerMode || !shadeState.routingContext || !selection.route || !selection.start
+      workerMode
+      || !shadeState.routingContext
+      || !selection.route
+      || !selection.start
       || !selection.destination
       || selection.route.routes.fastest.metrics.shadeScenario === shadeState.scenario
     ) return
@@ -315,25 +300,28 @@ export function useRouteBundle({
     ? '道路データを読み込んでいます…'
     : graphState.status === 'error'
       ? '道路データを利用できません。'
-      : isSnapping
-        ? '道路上の地点を確認しています…'
-        : isCalculating ? 'ルートを計算しています…' : getSelectionPrompt(selection.phase)
+      : isCalculating
+        ? 'ルートを計算しています…'
+        : getSelectionPrompt(selection.phase)
   const selectedRoute = selection.route?.routes?.[selection.selectedMode] ?? null
   const shadeStatus = workerMode
-    ? workerShade.ready ? 'ready' : graphState.status === 'error' ? 'error' : 'loading'
+    ? (shadeReady ? 'ready' : graphState.status === 'error' ? 'error' : 'loading')
     : shadeState.status
+  const routingEnvironmentStatus = workerMode
+    ? (shadeReady ? 'shade-aware' : 'base-only')
+    : shadeState.routingContext
+      ? 'shade-aware'
+      : shadeState.status === 'error'
+        ? 'base-only'
+        : 'loading'
 
   return {
     ...selection,
-    datasetId: activeDataset.id,
-    dataset: activeDataset,
-    datasetLabel: activeDataset.label,
     graphStatus: graphState.status,
     graphLoadTimeMs: graphState.loadTimeMs,
     roadGraph: workerMode ? null : graphRef.current,
     exposureGeoJSON,
     isCalculating,
-    isSnapping,
     error: graphState.error ?? selection.error,
     prompt,
     routes: selection.route?.routes ?? null,
@@ -345,11 +333,9 @@ export function useRouteBundle({
     shadeGeoJSON: workerMode ? null : shadeState.geoJSON,
     shadeStatus,
     shadeError: workerMode ? null : shadeState.error,
-    shadeCoverage: workerMode ? workerShade.coverage : shadeState.coverage,
-    shadeScenario: workerMode ? workerShadeScenario : shadeState.scenario,
-    routingEnvironmentStatus: workerMode
-      ? workerShade.ready ? 'shade-aware' : 'loading'
-      : shadeState.routingContext ? 'shade-aware' : shadeState.status === 'error' ? 'base-only' : 'loading',
+    shadeCoverage: workerMode ? shadeCoverage : shadeState.coverage,
+    shadeScenario: workerMode ? shadeScenarioState : shadeState.scenario,
+    routingEnvironmentStatus,
     changeShadeScenario,
     handleMapClick,
     selectStart,

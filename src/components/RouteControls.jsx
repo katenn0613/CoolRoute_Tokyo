@@ -17,7 +17,6 @@ export function RouteControls({ routingState }) {
     routes,
     comparisons,
     routingEnvironmentStatus,
-    shadeCoverage,
     selectedMode = 'balanced',
     phase,
     prompt,
