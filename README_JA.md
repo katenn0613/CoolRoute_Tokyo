@@ -6,15 +6,15 @@
 
 CoolRoute Tokyo は、東京の高温環境における徒歩経路を比較するハッカソン向け Web アプリです。**Fastest Route**、**Balanced Route**、**Coolest Route** を提示し、歩行時間と非医療的なモデル推定値である **Heat Exposure Score**（暑さ曝露スコア）のトレードオフを確認できます。
 
-> **プロジェクト状況：** M11 Production の対象は、連続性と完全な検証が可能な**東京都心5区**（千代田区、中央区、港区、新宿区、文京区）です。Road、Green、Water、Building Shade は同一のサービス範囲を使用します。Browser Graph Schema は `1.1.0` のままで、Production はオンラインバックエンドを持たない完全な静的アプリです。
+> **プロジェクト状況：** M11 Production の既定対象は**東京23区**です。Road、Green、Water、Building Shade は Binary Graph、Web Worker、静的 MVT を通じてブラウザ内で動作します。Browser Graph Schema は `1.1.0` のままで、オンラインバックエンドはありません。
 
-`?dataset=tokyo23-route-a` では、遠隔ブランチから統合した Tokyo23 Binary/Worker/MVT Runtime を実験的に確認できます。実験 Graph は 409,472 Node、1,206,772 Directed Edge、20 Weak Component を含み、Component 間の OD は到達不能です。約288MBの構築元 JSON はコミットされていないため、Production の既定値にはせず、初期化失敗時は Core5 に自動フォールバックします。
+Tokyo23 Production Runtime は 409,472 Node、1,206,772 Directed Edge、3つの日陰シナリオを含みます。20 Weak Component 間の OD は明示的に到達不能となり、Binary Runtime の初期化失敗時は Core5 に自動フォールバックします。約288MBの構築元 JSON はコミットせず、最終 Binary/MVT と機械可読 Metadata を保持します。
 
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
 
-都心5区のデータ品質と制限については、[TOKYO_CORE5_SCALE_REPORT_JA](docs/TOKYO_CORE5_SCALE_REPORT_JA.md) を参照してください。
+データソースと Runtime の制限については、[DATA_SOURCES](docs/DATA_SOURCES.md) を参照してください。
 
 ## アーキテクチャ
 
@@ -70,7 +70,7 @@ npm run evaluate:routes
 
 この評価は Random Seed `20260821` を固定し、Routing Algorithm、Exposure Formula、Weight、Lambda、Production Graph を変更しません。
 
-東京都心5区の Production Data を再生成・再開する場合：
+フォールバック用の東京都心5区データを再生成・再開する場合：
 
 ```bash
 .venv/bin/python scripts/tokyo_core5/run_pipeline.py --status
@@ -82,9 +82,9 @@ Core5 Pipeline は Road → Environment → Shade → Validate の順で実行�
 
 ## 対象エリア
 
-Production は東京都心5区を使用します。中心は `[139.7421134, 35.6806304]`、行政区 Union の Bounding Box は `[139.6732748, 35.6230363, 139.7931527, 35.7359098]` で、唯一の正式設定は `config/tokyo_core5_area.json` です。
+Production は Tokyo23 Binary/Worker/MVT Runtime を既定で使用します。中心は `[139.758, 35.676]`、Runtime Bounding Box は `[139.559, 35.528, 139.918, 35.818]` で、設定は `config/tokyo23_area.json` にあります。
 
-ブラウザは `service_area_tokyo_core5.geojson` も読み込むため、出発地と目的地は単なる矩形ではなく、実際の5区 Union Polygon 内に制限されます。旧 Demo は回帰用に残します。欠損していた旧 Tokyo23 JSON は Pages Asset から除外し、新しい Binary/MVT は明示的な実験 Runtime としてのみ使用します。
+出発地と目的地は Runtime Bounding Box 内の有効な Road Node に Snap されます。旧 Demo と Core5 JSON は回帰および Binary 初期化失敗時のフォールバックとして残します。
 
 ## リポジトリ構成
 
@@ -115,7 +115,7 @@ Production は次の実データを使用します。
 - OpenStreetMap の歩行道路ネットワーク
 - 東京都「緑のオープンデータ（GISデータ）」の実緑被覆 Polygon ホワイトリスト
 - 東京都水道局 Tokyowater Drinking Station
-- 国土交通省 Project PLATEAU 東京23区 2020 の公式 Building CityGML のうち、都心5区の影響範囲に交差する mesh
+- 国土交通省 Project PLATEAU 東京23区 2020 の公式 Building CityGML
 
 公式データを捏造・補完して Production Data として扱うことは禁止されています。出典、ライセンス、取得状況、処理内容は [DATA_SOURCES](docs/DATA_SOURCES.md) に記録しています。Synthetic Data は明示されたテスト fixture に限られます。
 
@@ -153,7 +153,7 @@ M7 は Random Seed `20260821` を使い、Fastest Route Distance ごとに90組�
 - 1000–2000m：30組
 - 2000–3500m：30組
 
-Trade-off の結果によるサンプル選別は行っていません。旧 Demo Area と当時のモデル条件では、Average Heat Exposure と Modelled Exposure Load がともに低下したサンプルは Balanced 55.6%、Coolest 61.1% で、3経路すべてが同一だった割合は38.9%でした。この結果は東京全域や現在のCore5全体へ一般化できず、医療効果を示すものでもありません。
+Trade-off の結果によるサンプル選別は行っていません。旧 Demo Area と当時のモデル条件では、Average Heat Exposure と Modelled Exposure Load がともに低下したサンプルは Balanced 55.6%、Coolest 61.1% で、3経路すべてが同一だった割合は38.9%でした。この結果は現在のTokyo23 Production全体へ一般化できず、医療効果を示すものでもありません。
 
 評価結果は [evaluation_results.json](evaluation/evaluation_results.json)、[evaluation_summary.json](evaluation/evaluation_summary.json)、[EVALUATION_SUMMARY_JA](docs/EVALUATION_SUMMARY_JA.md) を参照してください。
 
@@ -161,18 +161,18 @@ Trade-off の結果によるサンプル選別は行っていません。旧 Dem
 
 Building Height は Project PLATEAU の LOD Geometry Z Range のみから計算します。完全な LOD2 を優先し、不完全な場合は整棟 LOD1 にフォールバックします。`measuredHeight` は QA 専用で Shade 計算には使用しません。
 
-固定日 `2026-09-23`（Asia/Tokyo）の 09:00、12:00、15:00 をオフラインで事前計算します。ブラウザは CityGML や Shadow Polygon を処理せず、軽量な `shade_tokyo_core5.json` Sidecar だけを読み込みます。
+固定日 `2026-09-23`（Asia/Tokyo）の 09:00、12:00、15:00 をオフラインで事前計算します。ブラウザは CityGML や Shadow Polygon を処理せず、Binary Runtime と静的 Shade MVT だけを読み込みます。
 
-Core5 Production の統計：
+Tokyo23 Production の統計：
 
-- Road Node：60,983
-- 有向 Road Edge：181,858
-- Weak Component：1
-- PLATEAU mesh：126 / 126
-- 有効 Building：293,663
-- LOD2 Building：29,561
-- LOD1 fallback：264,102
-- Shade Sidecar：約7.9MB、全181,858 Edge ID を収録
+- Road Node：409,472
+- 有向 Road Edge：1,206,772
+- Weak Component：20
+- PLATEAU Source Mesh：671
+- 有効 Building：1,768,239
+- LOD2 Building：31,727
+- LOD1 fallback：1,736,512
+- Shade Scenario：09:00 / 12:00 / 15:00
 
 この Shade Score は建物 Geometry による固定日時の推定日陰であり、実測日陰、樹木の日陰、気温低下、天候、医療リスクを表しません。
 
@@ -180,11 +180,11 @@ Core5 Production の統計：
 
 GitHub Actions は `main` への Push 後、JavaScript Test、Vite Subpath Build、Production Data 検証、GitHub Pages Artifact Upload、Deploy を実行します。`dist/` や Raw GIS は Git History に含めません。
 
-Production Runtime は HTML、JavaScript、CSS、JSON、GeoJSON の静的ファイルだけで構成され、Backend、Database、Remote Routing API、Weather API を使用しません。
+Production Runtime は HTML、JavaScript、CSS、Binary、JSON、GeoJSON、MVT の静的ファイルだけで構成され、Backend、Database、Remote Routing API、Weather API を使用しません。
 
 ## 現在の制限
 
-- 対象は東京23区全域ではなく、連続性とブラウザ性能を優先した東京都心5区です。
+- Road Graph は20個の Weak Component を含むため、Component をまたぐ OD は到達不能です。
 - OSM の道路属性と通行可否はコミュニティデータの完全性・更新時点に依存します。
 - Green / Water / PLATEAU は公式データの調査時点と空間的完全性に依存します。
 - Building Shade は固定日時の幾何モデルで、リアルタイムの天候、樹木の日陰、地形、材質、放射強度を含みません。

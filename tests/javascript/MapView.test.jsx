@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { demoArea } from '../../src/config/demoArea.js'
+import tokyo23Area from '../../config/tokyo23_area.json'
 import { routePresentation } from '../../src/config/presentationConfig.js'
 import { MapView } from '../../src/components/MapView.jsx'
 
@@ -161,7 +162,7 @@ describe('M6 MapView', () => {
     )
     expect(screen.getByText('地図を読み込んでいます…')).toBeInTheDocument()
     expect(maplibre.mapConstructor).toHaveBeenCalledWith(expect.objectContaining({
-      center: demoArea.center, zoom: demoArea.zoom, maxBounds: demoArea.boundingBox,
+      center: tokyo23Area.center, zoom: tokyo23Area.zoom, maxBounds: tokyo23Area.boundingBox,
     }))
 
     act(() => maplibre.handlers.load())
@@ -172,11 +173,11 @@ describe('M6 MapView', () => {
     expect(maplibre.markerInstances).toHaveLength(2)
     expect(maplibre.markerInstances[0].setLngLat).toHaveBeenCalledWith([139.75, 35.68])
     expect(maplibre.markerInstances[1].setLngLat).toHaveBeenCalledWith([139.753, 35.682])
-    expect(screen.getByText('東京都心5区')).toBeInTheDocument()
+    expect(screen.getByText('東京23区')).toBeInTheDocument()
   })
 
-  it('uses MVT environment layers only for the explicit Tokyo23 experimental dataset', () => {
-    render(<MapView datasetId="tokyo23-route-a" shadeStatus="ready" />)
+  it('uses MVT environment layers for the default Tokyo23 Production dataset', () => {
+    render(<MapView shadeStatus="ready" />)
     act(() => maplibre.handlers.load())
 
     expect(maplibre.addSource).toHaveBeenCalledWith(
@@ -190,7 +191,7 @@ describe('M6 MapView', () => {
         data: expect.stringContaining('drinking_stations_tokyo23.geojson'),
       }),
     )
-    expect(screen.getByText('東京23区（実験データ）')).toBeInTheDocument()
+    expect(screen.getByText('東京23区')).toBeInTheDocument()
   })
 
   it('recreates the map when the active dataset falls back to Core5', () => {

@@ -14,7 +14,7 @@ export const datasets = Object.freeze({
   'tokyo-core5': Object.freeze({
     id: 'tokyo-core5',
     label: '東京都心5区',
-    stability: 'production',
+    stability: 'fallback',
     runtime: 'json-main-thread',
     graphPath: 'data/graph_tokyo_core5.json',
     shadePath: 'data/shade_tokyo_core5.json',
@@ -23,19 +23,19 @@ export const datasets = Object.freeze({
   }),
   'tokyo23-route-a': Object.freeze({
     id: 'tokyo23-route-a',
-    label: '東京23区（実験データ）',
-    stability: 'experimental',
+    label: '東京23区',
+    stability: 'production',
     runtime: 'binary-worker',
     graphPath: 'data/graph_tokyo23.bin.gz',
     rawGraphPath: 'data/graph_tokyo23.bin',
     shadeMetadataPath: 'data/shade_metadata_tokyo23.json',
     drinkingStationsPath: 'data/drinking_stations_tokyo23.geojson',
     fallbackId: 'tokyo-core5',
-    area: freezeArea(tokyo23Area, '東京23区（実験データ）'),
+    area: freezeArea(tokyo23Area, '東京23区'),
   }),
 })
 
-export const defaultDataset = datasets['tokyo-core5']
+export const defaultDataset = datasets['tokyo23-route-a']
 
 export function resolveDataset(datasetId) {
   return datasets[datasetId] ?? defaultDataset

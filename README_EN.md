@@ -6,15 +6,15 @@
 
 CoolRoute Tokyo is a hackathon web application for comparing walking routes under Tokyo's high-temperature conditions. It presents **Fastest Route**, **Balanced Route**, and **Coolest Route**, allowing users to compare walking time with a non-medical, model-estimated **Heat Exposure Score**.
 
-> **Project status:** M11 Production now covers a connected and fully validated **Tokyo Core 5** area: Chiyoda, Chuo, Minato, Shinjuku, and Bunkyo. Road, Green, Water, and Building Shade use the same service area. Browser Graph Schema remains `1.1.0`, and the production application is fully static with no online backend.
+> **Project status:** M11 Production now defaults to **Tokyo's 23 wards**. Road, Green, Water, and Building Shade run in the browser through a Binary Graph, Web Worker, and static MVT assets. Browser Graph Schema remains `1.1.0`, with no online backend.
 
-The repository also exposes `?dataset=tokyo23-route-a` as an experimental entry point for the Tokyo23 Binary/Worker/MVT runtime integrated from the remote branch. It contains 409,472 nodes, 1,206,772 directed edges, and 20 weak components, so OD pairs across components are unreachable. The roughly 288MB source JSON used to build it was not committed; it is therefore not the Production default, and initialization failure automatically falls back to Core5.
+The Tokyo23 Production Runtime contains 409,472 nodes, 1,206,772 directed edges, and three shade scenarios. OD pairs across its 20 weak components are explicitly unreachable, and initialization failure automatically falls back to Core5. The roughly 288MB build-source JSON is not committed; the repository retains the final Binary/MVT assets and machine-readable verification metadata.
 
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
 
-See [TOKYO_CORE5_SCALE_REPORT_JA](docs/TOKYO_CORE5_SCALE_REPORT_JA.md) for detailed data-quality statistics and limitations.
+See [DATA_SOURCES](docs/DATA_SOURCES.md) for data provenance and runtime limitations.
 
 ## Architecture
 
@@ -70,7 +70,7 @@ npm run evaluate:routes
 
 The evaluation uses the fixed random seed `20260821` and does not modify the Routing Algorithm, Exposure Formula, weights, lambdas, or Production Graph.
 
-Generate or resume the Tokyo Core 5 Production Data pipeline:
+Generate or resume the fallback Tokyo Core 5 data pipeline:
 
 ```bash
 .venv/bin/python scripts/tokyo_core5/run_pipeline.py --status
@@ -82,9 +82,9 @@ The Core5 Pipeline runs Road → Environment → Shade → Validate. Shade resul
 
 ## Coverage
 
-Production uses the Tokyo Core 5 dataset. Its center is `[139.7421134, 35.6806304]`, and the administrative-union bounding box is `[139.6732748, 35.6230363, 139.7931527, 35.7359098]`. The single source of truth is `config/tokyo_core5_area.json`.
+Production defaults to the Tokyo23 Binary/Worker/MVT Runtime. Its center is `[139.758, 35.676]`, its runtime bounding box is `[139.559, 35.528, 139.918, 35.818]`, and its configuration is `config/tokyo23_area.json`.
 
-The browser also loads `service_area_tokyo_core5.geojson`, so Start and Destination must be inside the actual five-ward union polygon rather than merely inside a rectangular bounding box. The original Demo remains for regression. The old incomplete Tokyo23 JSON has been removed from the Pages artifact; the new Binary/MVT assets are available only through the explicit experimental runtime.
+Start and Destination are constrained to the runtime bounds and snapped to valid Road Nodes. The original Demo and Core5 JSON remain available for regression and automatic fallback if Binary initialization fails.
 
 ## Repository Layout
 
@@ -115,7 +115,7 @@ Production uses the following real datasets:
 - OpenStreetMap pedestrian road network
 - actual green-coverage polygons selected through a semantic whitelist from Tokyo Metropolitan Government Green Open Data
 - Tokyowater Drinking Station data from the Tokyo Metropolitan Government Bureau of Waterworks
-- official Project PLATEAU Tokyo 23 Wards 2020 Building CityGML meshes intersecting the Tokyo Core 5 influence area
+- official Project PLATEAU Tokyo 23 Wards 2020 Building CityGML
 
 Official Tokyo data must never be fabricated or silently replaced. Dataset sources, licences, acquisition status, coverage, and processing methods are recorded in [DATA_SOURCES](docs/DATA_SOURCES.md). Synthetic data is restricted to explicitly labelled test fixtures.
 
@@ -153,7 +153,7 @@ M7 sampled 90 directed OD pairs using the fixed random seed `20260821`, stratifi
 - 1000–2000m: 30 pairs
 - 2000–3500m: 30 pairs
 
-Samples were not selected based on favourable trade-offs. Under the original Demo Area, data, and model conditions, both Average Heat Exposure and Modelled Exposure Load decreased in 55.6% of Balanced samples and 61.1% of Coolest samples; all three routes were identical in 38.9% of samples. These results cannot be generalized to all of Tokyo or the current full Core5 area and do not represent a medical benefit.
+Samples were not selected based on favourable trade-offs. Under the original Demo Area, data, and model conditions, both Average Heat Exposure and Modelled Exposure Load decreased in 55.6% of Balanced samples and 61.1% of Coolest samples; all three routes were identical in 38.9% of samples. These results cannot be generalized to the current Tokyo23 Production runtime and do not represent a medical benefit.
 
 See [evaluation_results.json](evaluation/evaluation_results.json), [evaluation_summary.json](evaluation/evaluation_summary.json), and [EVALUATION_SUMMARY_JA](docs/EVALUATION_SUMMARY_JA.md).
 
@@ -161,18 +161,18 @@ See [evaluation_results.json](evaluation/evaluation_results.json), [evaluation_s
 
 Building Height is derived only from the Project PLATEAU LOD Geometry Z Range. Complete LOD2 is preferred; otherwise the entire building falls back to LOD1. `measuredHeight` is used only for QA and never participates in formal Shade calculation.
 
-Shade is precomputed offline for 09:00, 12:00, and 15:00 on the fixed reference date `2026-09-23` in `Asia/Tokyo`. The browser does not parse CityGML or generate shadow polygons; it loads the lightweight `shade_tokyo_core5.json` sidecar.
+Shade is precomputed offline for 09:00, 12:00, and 15:00 on the fixed reference date `2026-09-23` in `Asia/Tokyo`. The browser does not parse CityGML or generate shadow polygons; it loads only the Binary Runtime and static Shade MVT.
 
-Tokyo Core 5 Production statistics:
+Tokyo23 Production statistics:
 
-- Road Nodes: 60,983
-- Directed Road Edges: 181,858
-- Weak Components: 1
-- PLATEAU meshes: 126 / 126
-- Valid Buildings: 293,663
-- LOD2 Buildings: 29,561
-- LOD1 fallbacks: 264,102
-- Shade sidecar: approximately 7.9MB, covering all 181,858 Edge IDs
+- Road Nodes: 409,472
+- Directed Road Edges: 1,206,772
+- Weak Components: 20
+- PLATEAU source meshes: 671
+- Valid Buildings: 1,768,239
+- LOD2 Buildings: 31,727
+- LOD1 fallbacks: 1,736,512
+- Shade scenarios: 09:00 / 12:00 / 15:00
 
 The Shade Score represents modelled building shade for fixed date/time scenarios. It is not measured shade, tree shade, temperature reduction, weather information, or medical risk.
 
@@ -180,11 +180,11 @@ The Shade Score represents modelled building shade for fixed date/time scenarios
 
 After a push to `main`, GitHub Actions runs JavaScript tests, the Vite Pages-subpath build, Production Data validation, Artifact upload, and GitHub Pages deployment. `dist/` and Raw GIS files are not committed to Git history.
 
-The production runtime consists only of static HTML, JavaScript, CSS, JSON, and GeoJSON files. It uses no backend, database, remote Routing API, or Weather API.
+The production runtime consists only of static HTML, JavaScript, CSS, Binary, JSON, GeoJSON, and MVT files. It uses no backend, database, remote Routing API, or Weather API.
 
 ## Current Limitations
 
-- Coverage is the connected Tokyo Core 5 area, not all 23 Tokyo wards.
+- The Road Graph contains 20 weak components, so OD pairs across components are unreachable.
 - OSM road attributes and access rules depend on community-data completeness and update timing.
 - Green, Water, and PLATEAU features depend on the source datasets' survey dates and spatial completeness.
 - Building Shade is a fixed-date geometric model and does not include real-time weather, tree shade, terrain, materials, or radiation intensity.

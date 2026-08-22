@@ -25,7 +25,7 @@ function shadePayload(graph) {
 }
 
 describe('useRouteBundle', () => {
-  it('uses the Tokyo23 Worker engine and recalculates for a changed Shade scenario', async () => {
+  it('uses the default Tokyo23 Worker engine and recalculates for a changed Shade scenario', async () => {
     const routeBundle = {
       routes: {
         fastest: { metrics: { distanceMeters: 100 }, geoJSON: { type: 'Feature' } },
@@ -46,10 +46,7 @@ describe('useRouteBundle', () => {
       calculateBundle: vi.fn().mockResolvedValue(routeBundle),
       dispose: vi.fn(),
     }
-    const { result, unmount } = renderHook(() => useRouteBundle({
-      datasetId: 'tokyo23-route-a',
-      engine,
-    }))
+    const { result, unmount } = renderHook(() => useRouteBundle({ engine }))
     await waitFor(() => expect(result.current.graphStatus).toBe('ready'))
     expect(result.current.datasetId).toBe('tokyo23-route-a')
     expect(result.current.roadGraph).toBeNull()

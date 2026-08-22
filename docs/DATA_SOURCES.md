@@ -8,13 +8,14 @@ M1 建立来源、目录和 Loader 契约；M2 已获取真实 OpenStreetMap 步
 
 M8 将浏览器所需的轻量数据随 GitHub Pages Artifact 发布：
 
-- Road Graph: <https://katenn0613.github.io/CoolRoute_Tokyo/data/graph_tokyo_core5.json>
-- Environment Metadata: <https://katenn0613.github.io/CoolRoute_Tokyo/data/environment_metadata_tokyo_core5.json>
-- Drinking Stations: <https://katenn0613.github.io/CoolRoute_Tokyo/data/drinking_stations_tokyo_core5.geojson>
-- Service Area: <https://katenn0613.github.io/CoolRoute_Tokyo/data/service_area_tokyo_core5.geojson>
-- Building Shade: <https://katenn0613.github.io/CoolRoute_Tokyo/data/shade_tokyo_core5.json>
+- Road Graph: <https://katenn0613.github.io/CoolRoute_Tokyo/data/graph_tokyo23.bin.gz>
+- Runtime Metadata: <https://katenn0613.github.io/CoolRoute_Tokyo/data/graph_tokyo23_runtime_metadata.json>
+- Environment Metadata: <https://katenn0613.github.io/CoolRoute_Tokyo/data/environment_metadata_tokyo23.json>
+- Drinking Stations: <https://katenn0613.github.io/CoolRoute_Tokyo/data/drinking_stations_tokyo23.geojson>
+- Building Shade Metadata: <https://katenn0613.github.io/CoolRoute_Tokyo/data/shade_metadata_tokyo23.json>
+- Heat / Shade MVT: `public/data/tiles/`
 
-Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefile、CSV、GeoPackage 及其他 Raw GIS 只用于离线预处理，不进入 Pages Runtime。
+Production Browser 只读取这些 Binary、JSON、GeoJSON 和 MVT 静态资源。GraphML、Shapefile、CSV、GeoPackage 及其他 Raw GIS 只用于离线预处理，不进入 Pages Runtime。
 
 ## 概览
 
@@ -44,7 +45,7 @@ Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefi
 - **当前状态：** `ready`，M2 真实 GraphML 与 M4 production `graph.json` 均验证通过
 - **已知限制：** 只覆盖 Demo 边界，不代表整个东京；OSM 完整性和通行标签依赖社区贡献；Schema Version 不是 OSM 数据版本。
 
-### M11 东京都心5区 Production
+### M11 东京都心5区回退数据
 
 - **Browser 文件：** `public/data/graph_tokyo_core5.json`；服务边界为 `public/data/service_area_tokyo_core5.geojson`
 - **覆盖：** 千代田区、中央区、港区、新宿区、文京区；60,983 个 Node、181,858 条有向 Edge
@@ -52,17 +53,17 @@ Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefi
 - **连通性：** 弱组件数 1；五区各自 Node/Edge 覆盖与跨区代表 Node 可达均通过
 - **Schema：** `1.1.0`；保持 `id/source/target/length/geometry/green_score/water_penalty`，不写入 Shade
 - **状态：** `ready`；43MB Enriched JSON，低于 90MB Production Gate；原 `graph.json` 保留为 Demo 基线
-- **Tokyo23 诊断结论：** 旧文件按区下载后只保留最大弱组件，造成明显空间缺失，故不再作为 Production 默认数据
+- **Tokyo23 诊断结论：** 旧 JSON 已退出 Runtime；当前默认 Production 使用后述的独立 Binary/MVT 产物
 
-### Tokyo23 Route A 实验运行时
+### Tokyo23 Route A Production 运行时
 
-- **入口：** `?dataset=tokyo23-route-a`；Core5 仍是 Production 默认，初始化失败自动回退 Core5
+- **入口：** 普通 Pages URL 默认加载；`?dataset=tokyo-core5` 可显式使用回退数据，初始化失败也会自动回退 Core5
 - **Browser 文件：** `public/data/graph_tokyo23.bin.gz`，不支持 `DecompressionStream` 时回退 `graph_tokyo23.bin`；Heat/Shade 图层使用 `public/data/tiles/` 下的静态 MVT
 - **结构：** Binary Schema 1；409,472 个 Node、1,206,772 条有向 Edge、3,445,656 个 Geometry Point、3 个 Shade 场景
 - **连通性：** 20 个弱连通组件；跨组件 OD 明确不可达，因此不得宣称东京23区任意两点均可寻路
 - **数据范围：** Binary 实际 Bounds `[139.5631173, 35.5324882, 139.9177598, 35.8174602]`；当前点击限制是矩形 Bounds，不是23区行政边界 Union
 - **来源与可复现性：** 运行时产物来自远程分支 `dev/route-a-perf` 的提交 `eb07e94fe84b2e449bdb4df63c2d1547a1f3cd3c`；约 288MB 的构建源 JSON 未提交，因此仓库可验证 Binary Header、Endpoint、数值范围和运行行为，但不能从仓库内重新生成该 Binary
-- **状态：** `experimental`，不是正式 `ready` Production；完整机器可读说明见 `public/data/graph_tokyo23_runtime_metadata.json`
+- **状态：** `ready` Production；完整机器可读说明见 `public/data/graph_tokyo23_runtime_metadata.json`
 
 ### M1 开发底图
 
@@ -79,7 +80,7 @@ M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式
 - **空间 / 时间覆盖：** 官方东京 GIS 数据；本项目只读取当前 Demo Road Graph 周边。官方调查/制作时点以该数据集说明为准，不解释成实时植被
 - **处理方法：** Raw 不修改；先查官方定义和真实 Schema，再按语义白名单局部读取；修复 7 个局部无效公共设施几何；用 100m 无损空间分片加速；每条 Edge 使用 EPSG:6677 的 15m Buffer；相交片段 union 后计算面积比例，避免重叠重复计数
 - **当前状态：** `ready`
-- **M11：** 已按相同语义白名单与 15m Buffer 规则扩展到 Core5 Graph，metadata 为 `public/data/environment_metadata_tokyo_core5.json`。
+- **M11：** 已按相同语义白名单与 15m Buffer 规则扩展到 Tokyo23 Binary Graph，metadata 为 `public/data/environment_metadata_tokyo23.json`。
 
 ### Green Polygon 语义白名单
 
@@ -107,7 +108,7 @@ M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式
 - **本地位置：** Raw `data/raw/drinking_station/`；Processed `data/processed/drinking_station/`；Browser `public/data/drinking_stations.geojson`
 - **处理方法：** 全部 801 个有效官方点参与最近距离计算；`<=100m → 0`、`<=300m → 0.3`、`<=500m → 0.6`、`>500m → 1`；浏览器 GeoJSON 只发布 Demo 内 5 个点
 - **当前状态：** `ready`
-- **M11：** `public/data/drinking_stations_tokyo_core5.geojson` 发布都心5区边界框内 158 个有效官方点；全部 801 个有效点继续参与最近距离计算。
+- **M11：** `public/data/drinking_stations_tokyo23.geojson` 发布东京23区范围内有效官方点；全部有效点继续参与最近距离计算。
 - **已知限制：** `water_penalty` 不是饮水点数量。“路线附近 N 个点”必须在后续按 Route Geometry 与独立 configurable buffer 计算，不能由 penalty 反推，也不能表述为路线实际经过。
 
 ## 4. Tokyo Street Trees
@@ -125,7 +126,7 @@ M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式
 
 ## 5. Project PLATEAU 3D Buildings
 
-### M11 东京都心5区 Production
+### M11 东京都心5区回退数据
 
 - **官方来源：** [Project PLATEAU 东京23区 2020](https://www.geospatial.jp/ckan/dataset/plateau-tokyo23ku)
 - **Browser 文件：** `public/data/shade_tokyo_core5.json`，Shade Schema `1.0.0`

@@ -6,15 +6,15 @@
 
 CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
 
-> **项目状态：** M11 Production 已调整为连续、可完整验证的**东京都心5区**（千代田区、中央区、港区、新宿区、文京区）。Road、Green、Water 与 Building Shade 使用同一正式服务范围；Browser Graph Schema 保持 `1.1.0`，正式运行完全静态且没有线上后端。
+> **项目状态：** M11 Production 默认覆盖**东京23区**。Road、Green、Water 与 Building Shade 通过 Binary Graph、Web Worker 和静态 MVT 在浏览器端运行；Browser Graph Schema 保持 `1.1.0`，正式运行完全静态且没有线上后端。
 
-仓库同时提供 `?dataset=tokyo23-route-a` 实验入口，用于验证远程分支提交的 Tokyo23 Binary/Worker/MVT Runtime。该实验图包含 409,472 个 Node、1,206,772 条有向 Edge 和 20 个弱连通组件，跨组件 OD 不可达；约 288MB 的构建源 JSON 未提交，因此它不是正式默认数据。实验运行时初始化失败会自动回退 Core5。
+Tokyo23 Production Runtime 包含 409,472 个 Node、1,206,772 条有向 Edge和三个 Shade 场景。图中存在 20 个弱连通组件，跨组件 OD 会明确返回不可达；Binary Runtime 初始化失败时自动回退 Core5。约 288MB 的构建源 JSON 未提交，仓库保留最终 Binary/MVT 与机器可读核验 Metadata。
 
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
 
-日语项目说明见 [PROJECT_OVERVIEW_JA](docs/PROJECT_OVERVIEW_JA.md)，都心5区数据质量与限制见 [TOKYO_CORE5_SCALE_REPORT_JA](docs/TOKYO_CORE5_SCALE_REPORT_JA.md)。
+日语项目说明见 [PROJECT_OVERVIEW_JA](docs/PROJECT_OVERVIEW_JA.md)，数据来源与运行时限制见 [DATA_SOURCES](docs/DATA_SOURCES.md)。
 
 ## 架构概览
 
@@ -78,7 +78,7 @@ npm run evaluate:routes
 .venv/bin/python scripts/build_osm_graph.py --force-download
 ```
 
-重新生成东京都心5区 Production Data：
+重新生成作为故障回退的东京都心5区数据：
 
 ```bash
 .venv/bin/python scripts/tokyo_core5/run_pipeline.py --status
@@ -91,7 +91,7 @@ Core5 Pipeline 依次执行 Road → Environment → Shade → Validate。Shade 
 
 ## 覆盖区域
 
-Production 默认使用东京都心5区数据，中心点为 `[139.7421134, 35.6806304]`，行政区 Union 边界框为 `[139.6732748, 35.6230363, 139.7931527, 35.7359098]`，唯一配置源为 `config/tokyo_core5_area.json`。浏览器还读取 `service_area_tokyo_core5.geojson`，因此起终点必须位于真实五区 Polygon，而不只是矩形边界框内。原 Demo 继续保留用于回归；旧缺失版 Tokyo23 JSON 已退出 Pages 资产，新的 Binary/MVT 仅作为显式实验运行时。
+Production 默认使用 Tokyo23 Binary/Worker/MVT Runtime，地图中心为 `[139.758, 35.676]`，运行时边界为 `[139.559, 35.528, 139.918, 35.818]`，配置源为 `config/tokyo23_area.json`。起终点必须位于该边界内并吸附到有效 Road Node。原 Demo 和 Core5 JSON 继续保留用于回归与 Binary 初始化失败时的回退。
 
 ## 仓库目录
 
@@ -221,12 +221,12 @@ M10.5 保留 M5 Base Exposure `0.7 × (1-green_score) + 0.3 × water_penalty`，
 - **M9 — Weather：** 已取消作为 Production Feature，仅保留为 Future Work；
 - **M10 — Building Shade Prototype：** 已完成当前 Demo Area 秋分日 09:00、12:00、15:00 三个离散场景的离线预计算与静态图层；
 - **M10.5 — Shade-aware Routing：** 固定 25% Building Shade 环境贡献，让三个离散场景参与 Balanced/Coolest 浏览器端寻路；
-- **M11 — Scale Expansion：** 以连续、浏览器可承载的东京都心5区扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
+- **M11 — Scale Expansion：** 使用浏览器可承载的 Tokyo23 Binary/Worker/MVT 扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
 
-## M11 Tokyo Core 5 Scale Expansion
+## M11 Tokyo23 Scale Expansion
 
-Production 默认加载 `graph_tokyo_core5.json`、`environment_metadata_tokyo_core5.json`、`drinking_stations_tokyo_core5.geojson`、`service_area_tokyo_core5.geojson` 和独立的 `shade_tokyo_core5.json`。Road Graph 由五区行政边界先求 Union 后一次性获取，包含 60,983 个 Node 与 181,858 条有向 Edge，弱组件数为 1；Green/Water 已按 M4 正式公式完整生成。Building Shade 完成了与 Core5 Service Area Polygon 的 500m 影响区相交的 126 个 PLATEAU mesh，并保持逐 mesh 删除 Raw 的策略；约 7.9MB 的 Sidecar 精确覆盖全部 181,858 条 Edge。质量统计记录在 Sidecar metadata 和 [日语报告](docs/TOKYO_CORE5_SCALE_REPORT_JA.md) 中。
+Production 默认加载 `graph_tokyo23.bin.gz`（必要时回退未压缩 Binary）、`environment_metadata_tokyo23.json`、`drinking_stations_tokyo23.geojson`、`shade_metadata_tokyo23.json` 和 Heat/Shade MVT。路线在 Web Worker 中计算，Fastest、Balanced、Coolest 继续使用现有公式；Shade 仍是独立场景数据，不修改 Graph Schema。
 
-此前 Tokyo23 文件由逐区路网拼接后仅保留最大组件，造成空间覆盖明显缺失，因此不再用于 Production。该修复没有修改 Dijkstra、路线权重、M10.5 Shade-aware Formula、Graph Schema 或 React 架构。
+此前缺失的 Tokyo23 JSON 已退出 Runtime；当前 Production 使用独立核验后的 Binary/MVT 产物。Core5 的 60,983 Node / 181,858 Edge 连续图继续作为自动回退。本次切换没有修改路线权重、M10.5 Shade-aware Formula、Graph Schema 或 React 架构。
 
 M8–M11 不改变当前核心原则：Raw GIS 只用于离线处理，浏览器只读取轻量静态数据，正式应用不依赖线上后端。

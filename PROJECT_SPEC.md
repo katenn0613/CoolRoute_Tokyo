@@ -12,9 +12,9 @@ CoolRoute Tokyo 是一款面向东京高温环境的浏览器端步行路线推�
 
 M5 的 `maximumExtraDistanceRatio` 默认为 `null`，因此当前没有启用强制绕行上限。
 
-原始黑客松 Demo 的 2–3 km 数据继续用于回归；当前正式 Production 覆盖连续的东京都心5区（千代田区、中央区、港区、新宿区、文京区），它不是东京全市生产级寻路服务。五区行政边界 Polygon 是 Start / Destination 的正式服务范围。
+原始黑客松 Demo 的 2–3 km 数据继续用于回归；当前正式 Production 默认覆盖东京23区，并通过 Binary Graph、Web Worker 与静态 MVT 在 GitHub Pages 中运行。Start / Destination 当前限制在 Tokyo23 Runtime Bounding Box 内。
 
-Tokyo23 Binary/Worker/MVT 只通过 `?dataset=tokyo23-route-a` 作为实验运行时提供。该图包含 20 个弱连通组件且缺少仓库内构建源 JSON，不得替代 Core5 的 Production 范围声明；跨组件路线必须明确返回不可达，初始化失败必须回退 Core5。
+Tokyo23 图包含 20 个弱连通组件，跨组件路线必须明确返回不可达；Binary Runtime 初始化失败时自动回退经过验证的 Core5 JSON Runtime。仓库保留最终 Binary/MVT 及机器可读 Metadata，但不保留约 288MB 的构建源 JSON。
 
 ## 2. 系统架构
 
@@ -63,7 +63,7 @@ Tokyo23 Binary/Worker/MVT 只通过 `?dataset=tokyo23-route-a` 作为实验运�
 ### P0：黑客松必需
 
 - 使用静态 GitHub Pages 部署，不运行线上后端。
-- 一个稳定、连续且完整验证的东京都心5区 Production 范围；原 2–3 km Demo 数据保留用于回归。
+- 一个浏览器可承载的东京23区 Production 范围；Core5 与原 2–3 km Demo 数据保留用于回归和回退。
 - 支持起点和终点选择的 MapLibre 地图。
 - 使用已记录的真实数据源离线生成浏览器可读步行图。
 - 在浏览器端比较 Fastest Route、Balanced Route 和 Coolest Route。

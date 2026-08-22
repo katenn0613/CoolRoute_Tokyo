@@ -37,13 +37,8 @@ export default function App() {
           </p>
           <p className="area-label">
             <span>対象エリア</span>
-            <strong>{routingState.datasetLabel ?? '東京都心5区'}</strong>
+            <strong>{routingState.datasetLabel ?? '東京23区'}</strong>
           </p>
-          {routingState.datasetId === 'tokyo23-route-a' && (
-            <p className="dataset-warning" role="status">
-              実験データは20個の道路コンポーネントを含むため、地点の組み合わせによっては到達できない場合があります。
-            </p>
-          )}
 
           <RouteControls routingState={routingState} />
           <ProductInfo />

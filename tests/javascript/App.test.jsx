@@ -40,6 +40,7 @@ function routingState(overrides = {}) {
     shadeGeoJSON: { type: 'FeatureCollection', features: [] },
     changeShadeScenario: vi.fn(), routingEnvironmentStatus: 'shade-aware',
     shadeCoverage: null,
+    datasetId: 'tokyo23-route-a', datasetLabel: '東京23区',
     ...overrides,
   }
 }
@@ -90,7 +91,7 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.getByRole('heading', { name: 'CoolRoute Tokyo' })).toBeInTheDocument()
     expect(screen.getByText('暑い日の徒歩移動を、もっと快適に。')).toBeInTheDocument()
     expect(screen.getByText('地図上で出発地を選択してください')).toBeInTheDocument()
-    expect(screen.getAllByText('東京都心5区').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('東京23区').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByLabelText('最短ルート')).toBeEnabled()
     expect(screen.getByRole('radio', { name: 'バランスルート' })).toBeChecked()
     expect(screen.getByLabelText('涼しさ優先ルート')).toBeEnabled()
@@ -107,14 +108,10 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.queryByText(/672メッシュ中664メッシュ、98.81%/)).not.toBeInTheDocument()
   })
 
-  it('Tokyo23 实验入口明确提示组件间可能不可达', () => {
-    routingHook.state = routingState({
-      datasetId: 'tokyo23-route-a',
-      datasetLabel: '東京23区（実験データ）',
-    })
+  it('Tokyo23 Production 默认入口不再显示实验数据警告', () => {
     render(<App />)
-    expect(screen.getByRole('status')).toHaveTextContent('20個の道路コンポーネント')
-    expect(screen.getByRole('status')).toHaveTextContent('到達できない場合')
+    expect(screen.queryByText(/実験データ/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/20個の道路コンポーネント/)).not.toBeInTheDocument()
   })
 
   it('三条 Route Card 显示日语指标，切换只调用 selectMode', () => {

@@ -8,9 +8,9 @@ CoolRoute Tokyo は、東京の高温環境における徒歩経路を比較す�
 
 ## 現在の対象エリア
 
-Production は、千代田区・中央区・港区・新宿区・文京区からなる連続した「東京都心5区」を対象とします。Road、Green、Water、Building Shade は同じサービス範囲を使用し、出発地と目的地は行政区 Union Polygon 内に制限されます。
+Production は東京23区を既定対象とし、Road、Green、Water、Building Shade を Binary Graph、Web Worker、静的 MVT で配信します。出発地と目的地は Runtime Bounding Box 内の有効な Road Node に Snap されます。
 
-`?dataset=tokyo23-route-a` は Tokyo23 Binary/Worker/MVT を確認する実験入口です。20個の弱連結成分を含み、構築元 JSON もリポジトリに存在しないため、Production の対象範囲とは扱いません。Component 間の OD は到達不能で、初期化に失敗した場合は Core5 に戻ります。
+Tokyo23 Graph は20個の弱連結成分を含むため、Component 間の OD は到達不能です。Binary Runtime の初期化に失敗した場合は、検証済みの Core5 JSON Runtime に自動で戻ります。
 
 ## 3 つの経路
 
@@ -40,7 +40,7 @@ Production は、千代田区・中央区・港区・新宿区・文京区から
 - OpenStreetMap の歩行道路ネットワーク
 - 東京都の「緑のオープンデータ（GIS データ）」のうち、実際の緑被覆 Polygon と定義できるホワイトリスト対象
 - 東京都水道局の Tokyowater Drinking Station
-- 国土交通省 Project PLATEAU 東京23区 2020 の公式建築 CityGML のうち、都心5区 Road Graph と 500m 影響範囲に交差する mesh
+- 国土交通省 Project PLATEAU 東京23区 2020 の公式建築 CityGML
 
 `green_score` は道路 15 m Buffer 内の実緑被覆 Polygon 比率の代理値であり、日陰、樹冠遮蔽率、実測路面温度ではありません。`water_penalty` も最寄り公式給水地点までの距離に基づく代理値であり、経路が給水地点を実際に通過することを意味しません。出典、ライセンス、処理内容は [DATA_SOURCES](DATA_SOURCES.md) に記録しています。
 
@@ -57,6 +57,6 @@ React + Vite + JavaScript で構築し、MapLibre GL JS で地図を描画しま
 ## 制限と免責
 
 - OSM の通行情報、公式環境データ、給水地点の状態は変化する可能性があります。
-- Building Shade は都心5区の 126 対象 mesh を増分処理した幾何モデルであり、実測日陰ではありません。Sidecar は全 181,858 Road Edge ID を欠損なく収録しています。
+- Building Shade は東京23区の 671 Source Mesh、1,768,239棟の有効 Building Geometry から事前計算したモデルであり、実測日陰ではありません。
 - 現在の Route Exposure Model は気温、湿度、実測日射、樹木の日陰、個人の健康状態を直接使用していません。建物日陰は固定時刻の幾何モデルであり、実際の環境はモデル推定と異なる場合があります。
 - Heat Exposure Score と Heat Exposure Index は経路比較のためのモデル指標です。熱中症確率、医療リスク、医学的に検証された効果を示すものではありません。

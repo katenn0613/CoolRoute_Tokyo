@@ -31,7 +31,7 @@ export function useRouteBundle({
   const requestedDataset = resolveDataset(datasetId)
   const startsInWorkerMode = requestedDataset.runtime === 'binary-worker' && loadGraph === undefined
   const [activeDataset, setActiveDataset] = useState(requestedDataset)
-  const workerMode = activeDataset.runtime === 'binary-worker'
+  const workerMode = startsInWorkerMode && activeDataset.runtime === 'binary-worker'
   const engineRef = useRef(null)
   if (startsInWorkerMode && engineRef.current === null) {
     engineRef.current = engine ?? createRouteEngine({
