@@ -8,6 +8,8 @@ CoolRoute Tokyo is a hackathon web application for comparing walking routes unde
 
 > **Project status:** M11 Production now covers a connected and fully validated **Tokyo Core 5** area: Chiyoda, Chuo, Minato, Shinjuku, and Bunkyo. Road, Green, Water, and Building Shade use the same service area. Browser Graph Schema remains `1.1.0`, and the production application is fully static with no online backend.
 
+The repository also exposes `?dataset=tokyo23-route-a` as an experimental entry point for the Tokyo23 Binary/Worker/MVT runtime integrated from the remote branch. It contains 409,472 nodes, 1,206,772 directed edges, and 20 weak components, so OD pairs across components are unreachable. The roughly 288MB source JSON used to build it was not committed; it is therefore not the Production default, and initialization failure automatically falls back to Core5.
+
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
@@ -82,7 +84,7 @@ The Core5 Pipeline runs Road → Environment → Shade → Validate. Shade resul
 
 Production uses the Tokyo Core 5 dataset. Its center is `[139.7421134, 35.6806304]`, and the administrative-union bounding box is `[139.6732748, 35.6230363, 139.7931527, 35.7359098]`. The single source of truth is `config/tokyo_core5_area.json`.
 
-The browser also loads `service_area_tokyo_core5.geojson`, so Start and Destination must be inside the actual five-ward union polygon rather than merely inside a rectangular bounding box. The original Demo and diagnostic Tokyo23 files remain in the repository but are not the production defaults.
+The browser also loads `service_area_tokyo_core5.geojson`, so Start and Destination must be inside the actual five-ward union polygon rather than merely inside a rectangular bounding box. The original Demo remains for regression. The old incomplete Tokyo23 JSON has been removed from the Pages artifact; the new Binary/MVT assets are available only through the explicit experimental runtime.
 
 ## Repository Layout
 
@@ -187,4 +189,3 @@ The production runtime consists only of static HTML, JavaScript, CSS, JSON, and 
 - Green, Water, and PLATEAU features depend on the source datasets' survey dates and spatial completeness.
 - Building Shade is a fixed-date geometric model and does not include real-time weather, tree shade, terrain, materials, or radiation intensity.
 - Actual environmental conditions may differ from the model estimates.
-

@@ -14,6 +14,8 @@ M5 的 `maximumExtraDistanceRatio` 默认为 `null`，因此当前没有启用�
 
 原始黑客松 Demo 的 2–3 km 数据继续用于回归；当前正式 Production 覆盖连续的东京都心5区（千代田区、中央区、港区、新宿区、文京区），它不是东京全市生产级寻路服务。五区行政边界 Polygon 是 Start / Destination 的正式服务范围。
 
+Tokyo23 Binary/Worker/MVT 只通过 `?dataset=tokyo23-route-a` 作为实验运行时提供。该图包含 20 个弱连通组件且缺少仓库内构建源 JSON，不得替代 Core5 的 Production 范围声明；跨组件路线必须明确返回不可达，初始化失败必须回退 Core5。
+
 ## 2. 系统架构
 
 ### 2.1 正式运行环境

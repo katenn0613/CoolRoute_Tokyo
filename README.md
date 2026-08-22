@@ -8,6 +8,8 @@ CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客�
 
 > **项目状态：** M11 Production 已调整为连续、可完整验证的**东京都心5区**（千代田区、中央区、港区、新宿区、文京区）。Road、Green、Water 与 Building Shade 使用同一正式服务范围；Browser Graph Schema 保持 `1.1.0`，正式运行完全静态且没有线上后端。
 
+仓库同时提供 `?dataset=tokyo23-route-a` 实验入口，用于验证远程分支提交的 Tokyo23 Binary/Worker/MVT Runtime。该实验图包含 409,472 个 Node、1,206,772 条有向 Edge 和 20 个弱连通组件，跨组件 OD 不可达；约 288MB 的构建源 JSON 未提交，因此它不是正式默认数据。实验运行时初始化失败会自动回退 Core5。
+
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
@@ -89,7 +91,7 @@ Core5 Pipeline 依次执行 Road → Environment → Shade → Validate。Shade 
 
 ## 覆盖区域
 
-Production 默认使用东京都心5区数据，中心点为 `[139.7421134, 35.6806304]`，行政区 Union 边界框为 `[139.6732748, 35.6230363, 139.7931527, 35.7359098]`，唯一配置源为 `config/tokyo_core5_area.json`。浏览器还读取 `service_area_tokyo_core5.geojson`，因此起终点必须位于真实五区 Polygon，而不只是矩形边界框内。原 Demo 与问题诊断用 Tokyo23 文件继续保留，不作为 Production 默认数据。
+Production 默认使用东京都心5区数据，中心点为 `[139.7421134, 35.6806304]`，行政区 Union 边界框为 `[139.6732748, 35.6230363, 139.7931527, 35.7359098]`，唯一配置源为 `config/tokyo_core5_area.json`。浏览器还读取 `service_area_tokyo_core5.geojson`，因此起终点必须位于真实五区 Polygon，而不只是矩形边界框内。原 Demo 继续保留用于回归；旧缺失版 Tokyo23 JSON 已退出 Pages 资产，新的 Binary/MVT 仅作为显式实验运行时。
 
 ## 仓库目录
 

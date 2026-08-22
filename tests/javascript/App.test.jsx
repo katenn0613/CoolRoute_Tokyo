@@ -107,6 +107,16 @@ describe('M6 日语正式产品页面', () => {
     expect(screen.queryByText(/672メッシュ中664メッシュ、98.81%/)).not.toBeInTheDocument()
   })
 
+  it('Tokyo23 实验入口明确提示组件间可能不可达', () => {
+    routingHook.state = routingState({
+      datasetId: 'tokyo23-route-a',
+      datasetLabel: '東京23区（実験データ）',
+    })
+    render(<App />)
+    expect(screen.getByRole('status')).toHaveTextContent('20個の道路コンポーネント')
+    expect(screen.getByRole('status')).toHaveTextContent('到達できない場合')
+  })
+
   it('三条 Route Card 显示日语指标，切换只调用 selectMode', () => {
     routingHook.state = readyState()
     render(<App />)

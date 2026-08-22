@@ -54,6 +54,16 @@ Production Browser 只读取这些 JSON/GeoJSON 静态资源。GraphML、Shapefi
 - **状态：** `ready`；43MB Enriched JSON，低于 90MB Production Gate；原 `graph.json` 保留为 Demo 基线
 - **Tokyo23 诊断结论：** 旧文件按区下载后只保留最大弱组件，造成明显空间缺失，故不再作为 Production 默认数据
 
+### Tokyo23 Route A 实验运行时
+
+- **入口：** `?dataset=tokyo23-route-a`；Core5 仍是 Production 默认，初始化失败自动回退 Core5
+- **Browser 文件：** `public/data/graph_tokyo23.bin.gz`，不支持 `DecompressionStream` 时回退 `graph_tokyo23.bin`；Heat/Shade 图层使用 `public/data/tiles/` 下的静态 MVT
+- **结构：** Binary Schema 1；409,472 个 Node、1,206,772 条有向 Edge、3,445,656 个 Geometry Point、3 个 Shade 场景
+- **连通性：** 20 个弱连通组件；跨组件 OD 明确不可达，因此不得宣称东京23区任意两点均可寻路
+- **数据范围：** Binary 实际 Bounds `[139.5631173, 35.5324882, 139.9177598, 35.8174602]`；当前点击限制是矩形 Bounds，不是23区行政边界 Union
+- **来源与可复现性：** 运行时产物来自远程分支 `dev/route-a-perf` 的提交 `eb07e94fe84b2e449bdb4df63c2d1547a1f3cd3c`；约 288MB 的构建源 JSON 未提交，因此仓库可验证 Binary Header、Endpoint、数值范围和运行行为，但不能从仓库内重新生成该 Binary
+- **状态：** `experimental`，不是正式 `ready` Production；完整机器可读说明见 `public/data/graph_tokyo23_runtime_metadata.json`
+
 ### M1 开发底图
 
 M1 使用 `https://tile.openstreetmap.org/{z}/{x}/{y}.png` 进行正常交互式底图显示。底图可见不代表步行图数据已就绪。应用必须遵守 <https://operations.osmfoundation.org/policies/tiles/>，不预取、批量下载或隐藏 attribution。

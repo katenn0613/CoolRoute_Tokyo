@@ -2,7 +2,7 @@
   "schemaVersion": "1.0.0",
   "datasetId": "tokyo23-route-a",
   "datasetLabel": "東京23区 Binary Route Runtime",
-  "runtimeRole": "default",
+  "runtimeRole": "experimental",
   "sourceBranch": "dev/route-a-perf",
   "sourceCommit": "eb07e94fe84b2e449bdb4df63c2d1547a1f3cd3c",
   "browserGraphSchemaVersion": "1.1.0",

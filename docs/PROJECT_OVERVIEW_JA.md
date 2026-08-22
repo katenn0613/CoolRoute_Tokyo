@@ -10,6 +10,8 @@ CoolRoute Tokyo は、東京の高温環境における徒歩経路を比較す�
 
 Production は、千代田区・中央区・港区・新宿区・文京区からなる連続した「東京都心5区」を対象とします。Road、Green、Water、Building Shade は同じサービス範囲を使用し、出発地と目的地は行政区 Union Polygon 内に制限されます。
 
+`?dataset=tokyo23-route-a` は Tokyo23 Binary/Worker/MVT を確認する実験入口です。20個の弱連結成分を含み、構築元 JSON もリポジトリに存在しないため、Production の対象範囲とは扱いません。Component 間の OD は到達不能で、初期化に失敗した場合は Core5 に戻ります。
+
 ## 3 つの経路
 
 - **最短ルート（fastest）:** 道路距離の合計を最小化します。

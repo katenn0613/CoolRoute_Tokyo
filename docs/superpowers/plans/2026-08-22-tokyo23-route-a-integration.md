@@ -1,8 +1,8 @@
-# Tokyo23 Route A Production Integration Implementation Plan
+# Tokyo23 Route A Experimental Runtime Integration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在当前主线中接入已提交的 Tokyo23 Binary/Worker/MVT Runtime，并保留 Core5 fallback。
+**Goal:** 在当前主线中接入已提交的 Tokyo23 Binary/Worker/MVT 实验 Runtime，并保持 Core5 为正式默认及 fallback。
 
 **Architecture:** Tokyo23 使用 Worker 内的 TypedArray Graph 和 Binary Dijkstra；地图环境层使用静态 MVT。当前 React 页面结构、模型公式和 Core5 JSON Loader 保持不变，通过 Dataset Config 选择运行时。
 
@@ -64,7 +64,7 @@
 - Test: `tests/javascript/MapView.test.jsx`
 - Test: `tests/javascript/useRouteBundle.test.jsx`
 
-- [ ] 写失败测试，要求 Tokyo23 为默认 Binary Dataset、Core5 fallback 保留、场景切换触发 Worker 重新路由。
+- [ ] 写失败测试，要求 Core5 保持默认、Tokyo23 显式使用 Binary Dataset、Core5 fallback 保留、场景切换触发 Worker 重新路由。
 - [ ] 确认当前 JSON Hook 不能满足测试。
 - [ ] 接入 Worker Engine 和 MVT Sources，不覆盖现有 UI 层级与日语术语。
 - [ ] 运行定向测试并提交。
@@ -81,4 +81,3 @@
 - [ ] 运行相关 JavaScript 测试、完整测试、Vite Subpath Build 和 Pages Validator。
 - [ ] 同步三语范围/限制文档，不将东京23区称为整个东京都。
 - [ ] 提交、合并 `main`、Push，并验收 GitHub Pages URL。
-

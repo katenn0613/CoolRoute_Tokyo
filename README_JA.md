@@ -8,6 +8,8 @@ CoolRoute Tokyo は、東京の高温環境における徒歩経路を比較す�
 
 > **プロジェクト状況：** M11 Production の対象は、連続性と完全な検証が可能な**東京都心5区**（千代田区、中央区、港区、新宿区、文京区）です。Road、Green、Water、Building Shade は同一のサービス範囲を使用します。Browser Graph Schema は `1.1.0` のままで、Production はオンラインバックエンドを持たない完全な静的アプリです。
 
+`?dataset=tokyo23-route-a` では、遠隔ブランチから統合した Tokyo23 Binary/Worker/MVT Runtime を実験的に確認できます。実験 Graph は 409,472 Node、1,206,772 Directed Edge、20 Weak Component を含み、Component 間の OD は到達不能です。約288MBの構築元 JSON はコミットされていないため、Production の既定値にはせず、初期化失敗時は Core5 に自動フォールバックします。
+
 ## Live Demo
 
 <https://katenn0613.github.io/CoolRoute_Tokyo/>
@@ -82,7 +84,7 @@ Core5 Pipeline は Road → Environment → Shade → Validate の順で実行�
 
 Production は東京都心5区を使用します。中心は `[139.7421134, 35.6806304]`、行政区 Union の Bounding Box は `[139.6732748, 35.6230363, 139.7931527, 35.7359098]` で、唯一の正式設定は `config/tokyo_core5_area.json` です。
 
-ブラウザは `service_area_tokyo_core5.geojson` も読み込むため、出発地と目的地は単なる矩形ではなく、実際の5区 Union Polygon 内に制限されます。旧 Demo と問題診断用 Tokyo23 データは残しますが、Production の既定値には使用しません。
+ブラウザは `service_area_tokyo_core5.geojson` も読み込むため、出発地と目的地は単なる矩形ではなく、実際の5区 Union Polygon 内に制限されます。旧 Demo は回帰用に残します。欠損していた旧 Tokyo23 JSON は Pages Asset から除外し、新しい Binary/MVT は明示的な実験 Runtime としてのみ使用します。
 
 ## リポジトリ構成
 
@@ -187,4 +189,3 @@ Production Runtime は HTML、JavaScript、CSS、JSON、GeoJSON の静的ファ�
 - Green / Water / PLATEAU は公式データの調査時点と空間的完全性に依存します。
 - Building Shade は固定日時の幾何モデルで、リアルタイムの天候、樹木の日陰、地形、材質、放射強度を含みません。
 - 実際の環境はモデル推定と異なる場合があります。
-
