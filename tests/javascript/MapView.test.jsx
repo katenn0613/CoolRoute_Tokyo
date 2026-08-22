@@ -193,6 +193,26 @@ describe('M6 MapView', () => {
     expect(screen.getByText('東京23区（実験データ）')).toBeInTheDocument()
   })
 
+  it('recreates the map when the active dataset falls back to Core5', () => {
+    const { rerender } = render(
+      <MapView datasetId="tokyo23-route-a" shadeStatus="ready" />,
+    )
+
+    expect(maplibre.mapConstructor).toHaveBeenCalledTimes(1)
+    expect(maplibre.mapConstructor).toHaveBeenLastCalledWith(expect.objectContaining({
+      maxBounds: [139.559, 35.528, 139.918, 35.818],
+    }))
+
+    rerender(<MapView datasetId="tokyo-core5" shadeStatus="ready" />)
+
+    expect(maplibre.remove).toHaveBeenCalledTimes(1)
+    expect(maplibre.mapConstructor).toHaveBeenCalledTimes(2)
+    expect(maplibre.mapConstructor).toHaveBeenLastCalledWith(expect.objectContaining({
+      maxBounds: demoArea.boundingBox,
+    }))
+    expect(screen.getByText('東京都心5区')).toBeInTheDocument()
+  })
+
   it('错误时隐藏技术详情并在卸载时移除 Map', () => {
     const { unmount } = render(<MapView />)
     act(() => maplibre.handlers.error(new Error('tile secret')))

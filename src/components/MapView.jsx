@@ -80,6 +80,8 @@ export function MapView({
   shadeScenarioRef.current = shadeScenario
 
   useEffect(() => {
+    setStatus('loading')
+    setMapReady(false)
     setWorkerUrl(workerUrl)
     const map = new Map({
       container: containerRef.current,
@@ -188,7 +190,7 @@ export function MapView({
       map.remove()
       mapRef.current = null
     }
-  }, [])
+  }, [dataset])
 
   useEffect(() => {
     const map = mapRef.current
