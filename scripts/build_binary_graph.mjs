@@ -40,7 +40,8 @@ export function buildBinaryGraph(graphPayload, shadePayload) {
   const nodeCount = nodeEntries.length
   const edgeCount = edges.length
 
-  if (edgeCount !== shadePayload?.metadata?.edgeCount) {
+  const hasShade = shadePayload !== null && shadePayload !== undefined
+  if (hasShade && edgeCount !== shadePayload.metadata.edgeCount) {
     throw new Error('Shade 与 Graph 的 Edge 数量不匹配。')
   }
 
@@ -91,15 +92,18 @@ export function buildBinaryGraph(graphPayload, shadePayload) {
   geometryOffset[edgeCount] = cursor
   if (cursor !== pointCount) throw new Error('Geometry 点数不一致。')
 
-  const scenarioCount = SCENARIOS.length
+  // 无阴影模式：scenarioCount = 0，不写 shade 段（Worker 会走 base-only 路由）。
+  const scenarioCount = hasShade ? SCENARIOS.length : 0
   const shade = new Float32Array(edgeCount * scenarioCount)
-  const edgeIndexById = new Map(edges.map((edge, index) => [edge.id, index]))
-  for (const [edgeId, values] of Object.entries(shadePayload.edgeShadeScores)) {
-    const edgeIndex = edgeIndexById.get(edgeId)
-    if (edgeIndex === undefined) throw new Error(`Shade Edge ${edgeId} 不在 Graph 中。`)
-    values.forEach((score, scenarioIndex) => {
-      shade[edgeIndex * scenarioCount + scenarioIndex] = score
-    })
+  if (hasShade) {
+    const edgeIndexById = new Map(edges.map((edge, index) => [edge.id, index]))
+    for (const [edgeId, values] of Object.entries(shadePayload.edgeShadeScores)) {
+      const edgeIndex = edgeIndexById.get(edgeId)
+      if (edgeIndex === undefined) throw new Error(`Shade Edge ${edgeId} 不在 Graph 中。`)
+      values.forEach((score, scenarioIndex) => {
+        shade[edgeIndex * scenarioCount + scenarioIndex] = score
+      })
+    }
   }
 
   const headerSize = 24
@@ -161,9 +165,10 @@ export function buildBinaryGraph(graphPayload, shadePayload) {
 }
 
 async function main() {
+  const noShade = process.env.CR_NO_SHADE === '1'
   const [graphPayload, shadePayload] = await Promise.all([
     readFile(GRAPH_URL, 'utf8').then(JSON.parse),
-    readFile(SHADE_URL, 'utf8').then(JSON.parse),
+    noShade ? Promise.resolve(null) : readFile(SHADE_URL, 'utf8').then(JSON.parse),
   ])
   const { buffer, stats } = buildBinaryGraph(graphPayload, shadePayload)
 
@@ -171,25 +176,27 @@ async function main() {
   await mkdir(outputDirectory, { recursive: true })
   await writeFile(OUTPUT_URL, buffer)
   await writeFile(OUTPUT_GZ_URL, gzipSync(buffer, { level: 9 }))
-  await writeFile(
-    SHADE_METADATA_URL,
-    `${JSON.stringify({
-      schemaVersion: shadePayload.metadata.schemaVersion,
-      scenarios: shadePayload.metadata.scenarios,
-      edgeCount: shadePayload.metadata.edgeCount,
-      quality: shadePayload.metadata.quality ?? null,
-      generatedAt: shadePayload.metadata.generatedAt,
-    }, null, 2)}\n`,
-  )
+  if (!noShade) {
+    await writeFile(
+      SHADE_METADATA_URL,
+      `${JSON.stringify({
+        schemaVersion: shadePayload.metadata.schemaVersion,
+        scenarios: shadePayload.metadata.scenarios,
+        edgeCount: shadePayload.metadata.edgeCount,
+        quality: shadePayload.metadata.quality ?? null,
+        generatedAt: shadePayload.metadata.generatedAt,
+      }, null, 2)}\n`,
+    )
+  }
 
   const graphBytes = (await stat(GRAPH_URL)).size
-  const shadeBytes = (await stat(SHADE_URL)).size
   console.log(JSON.stringify({
     graphJsonMB: +(graphBytes / 1048576).toFixed(1),
-    shadeJsonMB: +(shadeBytes / 1048576).toFixed(1),
+    shadeJsonMB: noShade ? 0 : +(stats.totalBytes / 1048576).toFixed(1),
     ...stats,
     binaryMB: +(stats.totalBytes / 1048576).toFixed(1),
     gzipMB: +(stats.gzipBytes / 1048576).toFixed(1),
+    noShade,
     reductionVsJson: `${Math.round(100 * (1 - stats.totalBytes / graphBytes))}%`,
     outputs: [fileURLToPath(OUTPUT_URL), fileURLToPath(OUTPUT_GZ_URL)],
   }, null, 2))
