@@ -7,6 +7,18 @@
 > 关联文档：`docs/TOKYO23_SCALE_REPORT_JA.md`（原规模报告）、`docs/TOKYO23_DATA_ISSUES.md`（排查记录）、
 > `docs/DATA_SOURCES.md`（数据源清单）、`AGENTS.md`（数据真实性规则，必须遵守）。
 
+## 当前进度（2026-08-22 晚）
+
+- **路网：23/23 区已重新下载并合并**（基线约 254.9 MB，节点/边数远超旧数据；之前缺失的
+  台東/北/板橋/荒川/足立/葛飾/練馬北部等全部补齐）。修复：每区 Overpass 下载失败重试 4 次 +
+  多实例故障转移（z / lz4 / overpass-api.de）+ 连续 3 区失败自动中止；不再只保留最大弱连通分量。
+- **process_green：23 区已完成**（1,206,772 条边，含 green_score / water_penalty）。
+- **process_shade：进行中**（672 个 PLATEAU mesh；国内网络对 PLATEAU CDN 偶发 SSL 断连，
+  已给 Range 读取加重试 4 次，剩余失败 mesh 可重跑补全）。
+- 数据管线工作区在**本机独立目录** `D:\Code\coolroute-data-pipeline`（conda 环境 `coolroute`，
+  Python 3.12 + osmnx 2.1.1），与主仓库分离；数据产物先在本地预览（localhost:5174）验证，
+  验证通过后按第 6 节复制回主仓库 `public/data/` 并执行 `npm run build:route-a`。
+
 ---
 
 ## 1. 背景
