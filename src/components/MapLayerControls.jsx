@@ -28,8 +28,8 @@ export function MapLayerControls({
         />
         {shadeConfig.layerLabel}
       </label>
-      <label>
-        {shadeConfig.scenarioLabel}
+      <label className="shade-scenario-control">
+        <span>{shadeConfig.scenarioLabel}</span>
         <select
           aria-label={shadeConfig.scenarioLabel}
           disabled={!shadeReady}

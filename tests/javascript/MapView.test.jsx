@@ -125,6 +125,8 @@ describe('M6 MapView', () => {
     expect(screen.getByLabelText('暑さ曝露レイヤー')).not.toBeChecked()
     expect(screen.getByLabelText('建物による推定日陰')).not.toBeChecked()
     expect(screen.getByLabelText('給水スポット')).not.toBeChecked()
+    expect(screen.getByLabelText('日陰条件').closest('label'))
+      .toHaveClass('shade-scenario-control')
     fireEvent.click(screen.getByLabelText('暑さ曝露レイヤー'))
     fireEvent.click(screen.getByLabelText('建物による推定日陰'))
     fireEvent.click(screen.getByLabelText('給水スポット'))
