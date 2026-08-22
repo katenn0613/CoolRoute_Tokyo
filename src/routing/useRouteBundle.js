@@ -46,6 +46,7 @@ export function useRouteBundle({
   const [graphState, setGraphState] = useState({ status: 'loading', loadTimeMs: null, error: null })
   const [exposureGeoJSON, setExposureGeoJSON] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  const [isSnapping, setIsSnapping] = useState(false)
   const [workerShade, setWorkerShade] = useState({ ready: false, coverage: null })
   const [workerShadeScenario, setWorkerShadeScenario] = useState(shadeConfig.defaultScenario)
   const shadeState = useShadeLayer({
@@ -185,6 +186,7 @@ export function useRouteBundle({
   const handleWorkerMapClick = useCallback(async (point) => {
     if (busyRef.current) return
     busyRef.current = true
+    setIsSnapping(true)
     try {
       const current = selectionRef.current
       const candidate = await snapPointAsync(point)
@@ -203,6 +205,7 @@ export function useRouteBundle({
     } catch (error) {
       dispatch({ type: 'CANDIDATE_REJECTED', error: toUserRoutingMessage(error) })
     } finally {
+      setIsSnapping(false)
       busyRef.current = false
     }
   }, [calculateAsync, snapPointAsync])
@@ -312,7 +315,9 @@ export function useRouteBundle({
     ? '道路データを読み込んでいます…'
     : graphState.status === 'error'
       ? '道路データを利用できません。'
-      : isCalculating ? 'ルートを計算しています…' : getSelectionPrompt(selection.phase)
+      : isSnapping
+        ? '道路上の地点を確認しています…'
+        : isCalculating ? 'ルートを計算しています…' : getSelectionPrompt(selection.phase)
   const selectedRoute = selection.route?.routes?.[selection.selectedMode] ?? null
   const shadeStatus = workerMode
     ? workerShade.ready ? 'ready' : graphState.status === 'error' ? 'error' : 'loading'
@@ -328,6 +333,7 @@ export function useRouteBundle({
     roadGraph: workerMode ? null : graphRef.current,
     exposureGeoJSON,
     isCalculating,
+    isSnapping,
     error: graphState.error ?? selection.error,
     prompt,
     routes: selection.route?.routes ?? null,

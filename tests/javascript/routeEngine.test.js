@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { RouteEngineError, createRouteEngine } from '../../src/routing/routeEngine.js'
 
@@ -76,5 +76,43 @@ describe('Route Engine Worker client', () => {
     await expect(pending).rejects.toEqual(expect.any(RouteEngineError))
     engine.dispose()
     expect(worker.terminated).toBe(true)
+  })
+
+  it('restarts a stalled Worker once so snapping cannot remain pending forever', async () => {
+    vi.useFakeTimers()
+    try {
+      const firstWorker = new FakeWorker()
+      const replacementWorker = new FakeWorker()
+      const workers = [firstWorker, replacementWorker]
+      const engine = createRouteEngine({
+        workerFactory: () => workers.shift(),
+        graphUrl: '/graph.bin.gz',
+        rawGraphUrl: '/graph.bin',
+        shadeMetadataUrl: '/shade-meta.json',
+        boundingBox: [139.5, 35.5, 140, 35.9],
+        snapTimeoutMs: 100,
+      })
+
+      const init = engine.init()
+      firstWorker.respond(0, { ok: true, nodeCount: 10, edgeCount: 20 })
+      await init
+
+      const snap = engine.snap([139.7, 35.7], 200)
+      await vi.advanceTimersByTimeAsync(100)
+      expect(firstWorker.terminated).toBe(true)
+
+      expect(replacementWorker.messages[0]).toMatchObject({ type: 'init' })
+      replacementWorker.respond(0, { ok: true, nodeCount: 10, edgeCount: 20 })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(replacementWorker.messages[1]).toMatchObject({
+        type: 'snap', point: [139.7, 35.7], maxMeters: 200,
+      })
+      replacementWorker.respond(1, { ok: true, index: 4, lon: 139.7, lat: 35.7 })
+
+      await expect(snap).resolves.toMatchObject({ index: 4 })
+      engine.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

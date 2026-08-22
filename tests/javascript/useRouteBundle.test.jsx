@@ -25,6 +25,30 @@ function shadePayload(graph) {
 }
 
 describe('useRouteBundle', () => {
+  it('shows immediate snapping feedback while the Tokyo23 Worker resolves a map click', async () => {
+    let resolveSnap
+    const pendingSnap = new Promise((resolve) => { resolveSnap = resolve })
+    const engine = {
+      init: vi.fn().mockResolvedValue({
+        nodeCount: 409472, edgeCount: 1206772, loadTimeMs: 250, shadeAvailable: true,
+      }),
+      snap: vi.fn().mockReturnValue(pendingSnap),
+      calculateBundle: vi.fn(),
+      dispose: vi.fn(),
+    }
+    const { result } = renderHook(() => useRouteBundle({ engine }))
+    await waitFor(() => expect(result.current.graphStatus).toBe('ready'))
+
+    act(() => { result.current.handleMapClick([139.7, 35.7]) })
+
+    expect(result.current.isSnapping).toBe(true)
+    expect(result.current.prompt).toBe('道路上の地点を確認しています…')
+
+    resolveSnap({ index: 4, lon: 139.7, lat: 35.7, distanceMeters: 5 })
+    await waitFor(() => expect(result.current.phase).toBe(PHASES.AWAITING_DESTINATION))
+    expect(result.current.isSnapping).toBe(false)
+  })
+
   it('uses the default Tokyo23 Worker engine and recalculates for a changed Shade scenario', async () => {
     const routeBundle = {
       routes: {

@@ -11,6 +11,7 @@ export default function App() {
   const interactionEnabled = routingState.graphStatus === 'ready'
     && routingState.phase !== PHASES.ROUTE_READY
     && !routingState.isCalculating
+    && !routingState.isSnapping
 
   return (
     <main className="app-shell">
