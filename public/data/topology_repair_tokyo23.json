@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "1.0.0",
+  "dataset": "OpenStreetMap-derived Tokyo23 browser graph",
+  "purpose": "Hackathon-stage repair of ward-boundary topology discontinuities",
+  "originalNodeCount": 409472,
+  "originalEdgeCount": 1206772,
+  "repairedEdgeCount": 1206794,
+  "originalWeakComponentCount": 20,
+  "majorComponentMinimumNodes": 1000,
+  "majorComponentCount": 12,
+  "remainingSmallComponentCount": 8,
+  "bridgePolicy": "minimum spanning connections between geographically nearest major-component nodes",
+  "limitations": "Derived bridges improve cross-ward reachability but do not prove complete real-world topology.",
+  "bridges": [
+    {
+      "id": "derived-boundary-bridge-01",
+      "bidirectional": true,
+      "lengthMeters": 1.746,
+      "source": [
+        139.6614193,
+        35.6745187
+      ],
+      "target": [
+        139.6614046,
+        35.6745085
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-02",
+      "bidirectional": true,
+      "lengthMeters": 1.803,
+      "source": [
+        139.6367463,
+        35.7309324
+      ],
+      "target": [
+        139.6367642,
+        35.7309396
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-03",
+      "bidirectional": true,
+      "lengthMeters": 2.255,
+      "source": [
+        139.7625264,
+        35.7312265
+      ],
+      "target": [
+        139.7625493,
+        35.7312346
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-04",
+      "bidirectional": true,
+      "lengthMeters": 2.399,
+      "source": [
+        139.8804653,
+        35.741732
+      ],
+      "target": [
+        139.8804917,
+        35.7417345
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-05",
+      "bidirectional": true,
+      "lengthMeters": 2.733,
+      "source": [
+        139.7061783,
+        35.769549
+      ],
+      "target": [
+        139.7061493,
+        35.7695419
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-06",
+      "bidirectional": true,
+      "lengthMeters": 2.948,
+      "source": [
+        139.7611101,
+        35.7437543
+      ],
+      "target": [
+        139.7611016,
+        35.7437287
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-07",
+      "bidirectional": true,
+      "lengthMeters": 3.679,
+      "source": [
+        139.6847071,
+        35.6048836
+      ],
+      "target": [
+        139.6847474,
+        35.604879
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-08",
+      "bidirectional": true,
+      "lengthMeters": 3.703,
+      "source": [
+        139.7535126,
+        35.6702736
+      ],
+      "target": [
+        139.7534943,
+        35.6702438
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-09",
+      "bidirectional": true,
+      "lengthMeters": 4.25,
+      "source": [
+        139.7949328,
+        35.6898534
+      ],
+      "target": [
+        139.7949795,
+        35.6898581
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-10",
+      "bidirectional": true,
+      "lengthMeters": 5.702,
+      "source": [
+        139.7803917,
+        35.6929872
+      ],
+      "target": [
+        139.7804334,
+        35.6929487
+      ]
+    },
+    {
+      "id": "derived-boundary-bridge-11",
+      "bidirectional": true,
+      "lengthMeters": 14.713,
+      "source": [
+        139.840273,
+        35.7174238
+      ],
+      "target": [
+        139.8404304,
+        35.7173895
+      ]
+    }
+  ]
+}

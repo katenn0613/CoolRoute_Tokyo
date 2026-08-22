@@ -5,7 +5,7 @@
     "12:00",
     "15:00"
   ],
-  "edgeCount": 1206772,
+  "edgeCount": 1206794,
   "quality": {
     "sourceMeshCount": 671,
     "validBuildingCount": 1768239,
@@ -14,5 +14,14 @@
     "lod1FallbackCount": 1736512,
     "rawRetentionPolicy": "delete-after-validated-target-mesh"
   },
-  "generatedAt": "2026-08-22T12:22:17.180706Z"
+  "generatedAt": "2026-08-22T12:22:17.180706Z",
+  "topologyRepair": {
+    "method": "major-component-nearest-boundary-bridges",
+    "majorComponentMinimumNodes": 1000,
+    "originalWeakComponentCount": 20,
+    "originalMajorComponentCount": 12,
+    "bidirectionalBridgeCount": 11,
+    "directedDerivedEdgeCount": 22,
+    "environmentalFallback": "mean-of-incident-endpoint-edges"
+  }
 }

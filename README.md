@@ -1,213 +1,108 @@
 # CoolRoute Tokyo
 
-CoolRoute Tokyo 是一款用于比较东京高温环境下步行路线的黑客松 Web 应用。它将展示 **Fastest Route**、**Balanced Route** 和 **Coolest Route**，让用户比较步行时间与非医疗性的模型估计 **Heat Exposure Score**（热暴露评分）。
+**中文** | [日本語](README_JA.md) | [English](README_EN.md)
 
-> **项目状态：** M11 已将 Road、Green、Water 扩展到东京23区，并上线 664/672 个 PLATEAU mesh（98.81%）的 Building Shade。缺失的 8 个 mesh 会使其附近的阴影被低估，但不影响 Road Graph、Fastest 或 Green/Water。Browser Graph Schema 仍为 `1.1.0`，正式运行完全静态且没有线上后端。
+[在线体验](https://katenn0613.github.io/CoolRoute_Tokyo/) · [数据来源](docs/DATA_SOURCES.md) · [日语项目说明](docs/PROJECT_OVERVIEW_JA.md)
 
-## Live Demo
+CoolRoute Tokyo 是一个面向东京高温步行环境的黑客松 Web 应用。它在地图上比较三种路线：
 
-<https://katenn0613.github.io/CoolRoute_Tokyo/>
+- **Fastest Route / 最短路线**：只以道路长度为成本；
+- **Balanced Route / 平衡路线**：兼顾步行距离与模型热暴露；
+- **Coolest Route / 凉爽优先路线**：赋予模型热暴露更高权重。
 
-日语项目说明见 [PROJECT_OVERVIEW_JA](docs/PROJECT_OVERVIEW_JA.md)，东京23区数据质量与限制见 [TOKYO23_SCALE_REPORT_JA](docs/TOKYO23_SCALE_REPORT_JA.md)。
+应用完全运行在浏览器中，通过 GitHub Pages 部署，不依赖线上后端、数据库或远程 Routing API。
 
-## 架构概览
+> Heat Exposure Score（热暴露评分）是用于路线比较的模型估计指标，不是中暑概率、医疗风险或医学验证后的风险下降比例。实际环境可能与模型估计不同。
 
-- 静态前端：React + Vite + JavaScript
-- 地图：MapLibre GL JS
-- 部署目标：GitHub Pages
-- 寻路运行环境：浏览器端 JavaScript
-- GIS 准备：只允许在开发或构建阶段运行离线 Python 脚本
-- 正式运行后端：无
-- 数据库：无
+## 当前状态
 
-部署后的应用从 GitHub Pages Artifact 加载版本化的静态图结构和环境数据资源。它不会调用项目自建的寻路 API，也不需要服务器进程。
+- 正式范围：东京23区；
+- Road Graph：409,472 个 Node；
+- 原始有向 Edge：1,206,772 条；
+- 行政区边界派生衔接 Edge：22 条；
+- Production Edge 总数：1,206,794 条；
+- Building Shade：Project PLATEAU，671 个 source mesh；
+- 阴影场景：秋分日 09:00、12:00、15:00；
+- Browser Graph Schema：`1.1.0`；Shade Schema：`1.0.0`。
+
+## 使用方式
+
+1. 在地图中点击选择出发点；
+2. 再次点击选择目的地；
+3. 浏览器计算并同时显示三种路线；
+4. 点击 Route Card 切换当前突出路线；
+5. 切换 09:00、12:00 或 15:00，将对应的预计算建筑阴影条件应用于 Balanced/Coolest。
+
+点击位置必须处于 Tokyo23 配置范围内，并且距最近步行道路 Node 不超过 300 米。
+
+## 模型
+
+```text
+baseHeatExposure
+= 0.7 × (1 - green_score)
++ 0.3 × water_penalty
+
+shadeAwareHeatExposure
+= 0.75 × baseHeatExposure
++ 0.25 × (1 - shade_score)
+
+Fastest:  distance
+Balanced: distance × (1 + 1 × shadeAwareHeatExposure)
+Coolest:  distance × (1 + 3 × shadeAwareHeatExposure)
+```
+
+Fastest 不读取 Shade。Balanced 与 Coolest 共用同一个浏览器端 Weighted Dijkstra，只通过 Weight Function 改变成本。
+
+## 数据与架构
+
+- React + Vite + JavaScript；MapLibre GL JS；
+- Web Worker 中运行的浏览器端 Weighted Dijkstra；
+- Road：OpenStreetMap walking network；
+- Green：东京都官方「緑のオープンデータ（GISデータ）」；
+- Water：Tokyowater Drinking Station；
+- Building Shade：国土交通省 Project PLATEAU CityGML；
+- 开发／构建阶段离线 GIS 处理；Production 是无后端的 GitHub Pages 静态站点。
+
+浏览器只读取紧凑二进制 Graph、环境 metadata、GeoJSON 与 MVT，不直接解析 Shapefile、GraphML 或 CityGML。详细来源、许可证和处理规则见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)。
 
 ## 本地运行
 
 ```bash
-npm install
+npm ci
 npm run dev
+npm test -- --run
+npm run build -- --base /CoolRoute_Tokyo/
 ```
 
-执行测试和生产构建：
+Python GIS 环境：
 
 ```bash
-npm test -- --run
-npm run build
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m unittest discover -s tests/python -v
 ```
 
-以实际 GitHub Project Pages Subpath 构建并验证静态 Artifact：
-
-```bash
-npm run build -- --base /CoolRoute_Tokyo/
-node scripts/validate_pages_build.mjs --dist dist --base-path /CoolRoute_Tokyo/
-```
-
-这里的子路径只是本地测试输入。Production Workflow 不写死仓库名，而是使用 `actions/configure-pages` 输出的 `base_path` 构建。
-
-测量正式 Road Graph 的本地 JSON 解析、索引和三条验收路线计算耗时：
-
-```bash
-npm run benchmark:routing
-```
-
-使用正式 Road Graph 和浏览器 Routing 模块重新生成 M7 路线评价：
-
-```bash
-npm run evaluate:routes
-```
-
-该命令固定使用 Random Seed `20260821`，并覆盖写入 `evaluation/` 下的正式 JSON 结果和 `docs/EVALUATION_SUMMARY_JA.md`。评价不会修改 Routing Algorithm、Exposure Formula、Weight、Lambda 或 Production Graph。
-
-`npm run preview` 仅用于在本机检查静态构建结果，不是正式应用依赖的线上后端。
-
-离线重新生成 OSM Graph：
-
-```bash
-.venv/bin/python scripts/build_osm_graph.py
-# 仅需忽略完整缓存并重新请求时（旧 Raw 快照会归档保留）：
-.venv/bin/python scripts/build_osm_graph.py --force-download
-```
-
-## 覆盖区域
-
-Production 默认使用东京23区数据，中心点为 `[139.758, 35.676]`，边界框为 `[139.559, 35.528, 139.918, 35.818]`，唯一配置源为 `config/tokyo23_area.json`。原 Demo 数据继续保留，不被 M11 覆盖。
-
-## 仓库目录
+## 主要目录
 
 ```text
-.
-├── .github/
-│   └── workflows/       # GitHub Pages Artifact 构建/部署工作流
-├── data/
-│   ├── processed/       # 开发阶段生成的 GIS 结果
-│   └── raw/             # 带来源记录的本地原始输入
-├── docs/                 # 设计和辅助文档
-├── evaluation/           # M7 逐 OD 评价结果与聚合统计
-├── public/
-│   └── data/            # 浏览器可读的静态运行时资源（含 graph.json）
-├── scripts/              # 离线 OSM/GIS 预处理与验证
-│   ├── data_sources/     # 数据 Source Layer
-│   └── evaluation/       # M7 确定性抽样、统计、验证与发布模块
-├── src/
-│   ├── components/      # React 展示和交互组件
-│   ├── config/          # Demo 区域、地图样式与数据源 Registry
-│   ├── routing/         # 浏览器端图结构与路径规划逻辑
-│   └── utils/           # 职责单一的共享工具
-├── tests/                # 确定性测试与已标注的合成 fixture
-├── AGENTS.md             # 具有约束力的仓库开发规则
-├── PROJECT_SPEC.md        # 产品范围、架构、数据流和声明政策
-└── README.md              # 项目入口
+public/data/       浏览器静态 Production Data
+src/components/    React UI 与 MapLibre 交互
+src/routing/       Graph、吸附、Dijkstra 与路线指标
+src/shade/         Shade Sidecar／图层逻辑
+scripts/           离线 GIS 和数据构建脚本
+tests/             测试与 synthetic fixture
+docs/              数据、方法、评价和阶段文档
 ```
 
-## 数据政策
+## 已知限制与后续改进
 
-禁止伪造东京官方开放数据。每个已接入数据集都必须保留来源、已知许可证和覆盖范围信息。如果所需的真实数据源无法获取，应用必须暴露数据适配器的缺失状态，不得虚构数值或将占位内容标记为官方数据。
+- Tokyo23 Road Graph 最初按行政区分别下载和简化，产生了区界拓扑断点。当前黑客松版本使用 11 组经距离筛选的双向派生连接，将覆盖超过 99.8% Node 的 12 个主要组件衔接起来；另外 8 个小型孤立组件保持原状。
+- 派生连接只修复主要组件之间的近距离断裂，不代表对现实道路拓扑进行了完整证明。连接列表与规则记录在 [`topology_repair_tokyo23.json`](public/data/topology_repair_tokyo23.json)。
+- 后续目标是使用统一 Tokyo23 Polygon 重新生成 OSM walking network，以正式道路拓扑替代临时区界衔接。
+- `green_score` 是道路 15 米 Buffer 内实际绿色覆盖 Polygon 的比例代理值，不等于树荫。
+- Building Shade 来自离线几何投影，不是实测阴影、道路温度或天气预报。Weather 不进入 Production。
+- 本项目不声称道路数据、阴影条件或 Heat Exposure Score 能保证个人安全、预防疾病或提供医学验证收益。
 
-六个数据源的许可证、获取状态、路径和限制见 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)。OpenStreetMap、M4 Green GIS、Drinking Station 与 M10 Project PLATEAU 均为 `ready`；Weather 不进入 Production。
+## 数据真实性
 
-只有在清楚标记且与真实 Demo 数据分离时，测试 fixture 才可以是合成数据。
-
-## 指标用语
-
-必须使用 **Heat Exposure Score**、**Heat Exposure Index** 和 **热暴露评分**。这些值用于比较模型估计的路线暴露，它们不是 **中暑概率**、医疗风险分数或经医学验证的风险降低比例。
-
-## M1 范围边界
-
-M1 已实现 React/Vite 静态应用骨架、MapLibre 东京 Demo 地图、禁用状态的三路线控制面板、数据源状态展示、权威数据 Registry，以及只验证本地文件且不会自动下载的 Python Loader。
-
-M1 没有实现 Dijkstra 或其他寻路算法、Heat Exposure Score 计算、GIS Spatial Join、PLATEAU 阴影模型、天气模型或真实数据下载。书面设计见 [M1 规格](docs/superpowers/specs/2026-08-17-m1-map-and-data-sources-design.md)。修改项目前必须先阅读 [PROJECT_SPEC.md](PROJECT_SPEC.md) 和 [AGENTS.md](AGENTS.md)。
-
-## M2 道路图
-
-M2 使用 OSMnx 2.1.1 获取真实 `walk` 网络，GraphML 缓存在 `data/raw/osm/`，浏览器 Graph 输出到 `public/data/graph.json`。M2 基线 Schema Version 为 `1.0.0`；M4 enrichment 后为 `1.1.0`，仍包含 5,350 个 Node 和 16,046 条有向 Edge；平行 Edge 和实际道路 geometry 均保留。
-
-M2 不包含寻路算法、路线显示、Heat Exposure Score 或任何环境数据处理。详细设计见 [M2 规格](docs/superpowers/specs/2026-08-17-m2-osm-road-graph-design.md)。
-
-## M3 Fastest Route
-
-M3 从 GitHub Pages 兼容的静态路径加载 `public/data/graph.json`，在浏览器端完成以下闭环：
-
-1. 第一次地图点击选择并吸附 Start，第二次选择并吸附 Destination；
-2. Destination 确定后，使用 `edge.length` 作为唯一权重自动运行 Dijkstra；
-3. 保留有向 MultiEdge 的具体 Edge，并拼接其真实 geometry 生成 GeoJSON；
-4. 地图显示 Start、Destination、Fastest Route，以及距离、按 1.4 m/s 估算的步行时间和 Edge 数量；
-5. `重新选择起点`、`重新选择终点` 使用事务式提交：新点无效或不可达时保留原路线；`Reset` 返回初始状态；
-6. 路线生成后普通地图点击不会覆盖现有选择，`Find Route` 按钮保留用于重新计算。
-
-当前只开放 Fastest。Balanced 和 Coolest 在界面中明确禁用，M3 没有 Heat Exposure 或环境权重逻辑。点击必须位于 Demo Area 内，且只会吸附到 200 m 内的 Road Graph Node。路线是否适合现实通行仍受 OSM 数据完整性和时效性限制。
-
-M3 设计与验收边界见 [M3 规格](docs/superpowers/specs/2026-08-18-m3-fastest-route-design.md)。
-
-## M4 环境 Edge Enrichment
-
-M4 在离线 Python 构建阶段，以 EPSG:6677 为每条 Edge 增加：
-
-- `green_score`：道路 15m Buffer 内由官方实际绿色覆盖 Polygon 估算的绿色覆盖比例代理值；
-- `water_penalty`：由 Edge Geometry 到最近官方 Drinking Station Point 的距离按统一阈值映射的离散 penalty；距离统计保存在环境 metadata，不扩张 Browser Edge Schema。
-
-Green 只采用官方定义可证明实际绿色覆盖的 Polygon 白名单，并在求面积前 union 去重。它不是 Shade Score、树冠遮阴比例、实际道路温度或医疗热风险。路线附近饮水点数量是独立的未来指标，M4 不从 `water_penalty` 反推。正式运行只读取 `public/data/` 静态文件，没有引入后端。详见 [M4 规格](docs/superpowers/specs/2026-08-18-m4-environment-edge-enrichment-design.md) 与 [环境 metadata](public/data/environment_metadata.json)。
-
-## M5 Heat Exposure 与三模式路由
-
-M5 使用 `0.7 × (1 - green_score) + 0.3 × water_penalty` 计算 Edge Modelled Heat Exposure。Fastest 使用道路距离；Balanced 和 Coolest 分别使用 lambda 1 和 3，在同一个 Weighted Dijkstra 中权衡距离与累计 Modelled Exposure Load。
-
-Heat Exposure Score 是单位距离上的平均模型环境强度；Modelled Exposure Load 是考虑路线长度后的累计代理量。两者不能混用。`Coolest` 表示更高权重偏向低模型热暴露的折中路线，不保证无条件全局最低 Exposure。详细公式、术语和限制见 [方法说明](docs/METHODOLOGY.md) 与 [M5 规格](docs/superpowers/specs/2026-08-18-m5-heat-exposure-routing-design.md)。
-
-## M6 日语产品界面
-
-M6 将技术 Demo 重构为日语优先的 Compare 界面。地图始终保留三条真实 Route Geometry，未选路线降低透明度，当前路线通过独立顶层图层突出显示；切换 Route Card 只切换呈现状态，不会重新执行 Dijkstra。默认及 Reset 后选中 `balanced`。
-
-Heat Exposure Layer 复用 M5 唯一的 Edge Exposure Model，只负责将正式 Edge 转换为 GeoJSON；Drinking Station Layer 读取静态 GeoJSON。两层默认关闭，且位于路线图层下方。正式 UI 将 Average Heat Exposure 显示为 `平均暑さ曝露スコア`，将 Modelled Exposure Load 显示为 `モデル上の累積暑さ曝露`。详细设计见 [M6 规格](docs/superpowers/specs/2026-08-18-m6-japanese-product-ui-design.md)。
-
-## M7 路线评价
-
-M7 建立了直接复用正式 `prepareGraph()` 和 `calculateRouteBundle()` 的离线 Node.js 评价管线。评价固定使用 Random Seed `20260821`，按 Fastest Route Distance 分层抽取 90 组有向 OD：
-
-- 400–1000m：30 组；
-- 1000–2000m：30 组；
-- 2000–3500m：30 组。
-
-样本接纳不读取路线是否重合、Heat Exposure 是否降低或绕路是否有利，因此不是为了展示效果筛选案例。在当前 Demo Area、当前数据与当前模型条件下，Balanced 和 Coolest 同时降低 Average Heat Exposure 与 Modelled Exposure Load 的样本比例分别为 55.6% 和 61.1%；三条路线全部相同的比例为 38.9%。这些结果不能推广为东京全域表现，也不是中暑概率、医疗风险或医学验证后的收益。
-
-正式评价产物：
-
-- [逐 OD 评价结果](evaluation/evaluation_results.json)；
-- [评价汇总](evaluation/evaluation_summary.json)；
-- [日语评价报告](docs/EVALUATION_SUMMARY_JA.md)；
-- [M7 设计规格](docs/superpowers/specs/2026-08-21-m7-route-evaluation-design.md)。
-
-## M8 Production Deployment
-
-M8 通过 GitHub 官方 Pages Artifact Workflow 部署 `main` 的正式静态构建。Workflow 先执行完整 JavaScript 测试，再使用 `actions/configure-pages` 的动态 `base_path` 进行 Vite Build，最后在上传前验证 HTML Asset、MapLibre Worker、Road Graph、Environment Metadata、Drinking Station GeoJSON 和 Repository Subpath HTTP 行为。
-
-`dist/` 不进入 Git History，也不创建 `gh-pages` Branch。Production Runtime 仍然只是 GitHub Pages 托管的 HTML、JavaScript、CSS 和轻量静态数据，没有线上后端。设计与验收边界见 [M8 规格](docs/superpowers/specs/2026-08-21-m8-production-deployment-design.md)。
-
-## M10 Building Shade Prototype
-
-M10 使用 Project PLATEAU 千代田区 2023 官方 CityGML，在离线 Python 流水线中解析 14 个当前 Demo 影响范围网格。建筑高度只来自整栋完整 LOD2 Geometry 的有效 Z Range；LOD2 不完整时整栋回退 LOD1，`measuredHeight` 仅用于 QA，不参与阴影计算。
-
-流水线固定秋分日 `2026-09-23` JST 的 09:00、12:00、15:00 三个场景，使用确定性太阳几何、建筑表面投影与 EPSG:6677 道路中心线相交比例，为全部 16,046 条 Edge 生成独立的 [shade.json](public/data/shade.json)。浏览器只读取该轻量 Sidecar；不解析 CityGML、不实时计算太阳阴影，也不修改 `graph.json`、Green/Water 或 M5 Base Exposure Formula。该图层表示“建物による推定日陰”，不是实测阴影、树荫、温度或医疗风险。
-
-## M10.5 Shade-aware Routing
-
-M10.5 保留 M5 Base Exposure `0.7 × (1-green_score) + 0.3 × water_penalty`，并为 Balanced/Coolest 增加独立的 Shade-aware Exposure：`0.75 × baseHeatExposure + 0.25 × (1-shade_score)`。`shadeContributionWeight=0.25` 是固定的环境因素贡献比例，不进行运行时调参或自动搜索。Fastest Cost 仍严格等于道路长度。
-
-用户选择 09:00、12:00 或 15:00 时，地图和 Route Cost 使用同一个不可变 Shade Context 并重新计算 Balanced/Coolest。原 M5 Route Metrics、M7 Baseline、`compareRouteToFastest()`、`graph.json` 和 Graph Schema 1.1.0 均保持不变；新增指标只显示平均建筑阴影与日阴反映后的模型热暴露评分。
-
-## 后续里程碑
-
-- **M8 — Production Deployment：** 已完成 GitHub Pages 正式部署、Subpath QA 和 Workflow 加固；
-- **M9 — Weather：** 已取消作为 Production Feature，仅保留为 Future Work；
-- **M10 — Building Shade Prototype：** 已完成当前 Demo Area 秋分日 09:00、12:00、15:00 三个离散场景的离线预计算与静态图层；
-- **M10.5 — Shade-aware Routing：** 固定 25% Building Shade 环境贡献，让三个离散场景参与 Balanced/Coolest 浏览器端寻路；
-- **M11 — Tokyo Scale Expansion：** 使用增量区域切片管线扩展 Road、Green、Water 和 Shade 数据，不重新设计现有静态架构。
-
-## M11 Tokyo23 Scale Expansion
-
-Production 默认加载 `graph_tokyo23.json`、`environment_metadata_tokyo23.json`、`drinking_stations_tokyo23.geojson` 和独立的 `shade_tokyo23.json`。Road Graph 包含 111,574 个 Node 与 327,240 条有向 Edge；Green/Water 已完整生成。Building Shade 当前纳入 672 个目标 mesh 中的 664 个，缺失列表及质量统计记录在 Sidecar metadata 和 [日语报告](docs/TOKYO23_SCALE_REPORT_JA.md) 中。原 Demo 静态文件保留用于回归，不再是 Production 默认数据。
-
-M8–M11 不改变当前核心原则：Raw GIS 只用于离线处理，浏览器只读取轻量静态数据，正式应用不依赖线上后端。
+项目禁止伪造东京官方开放数据。缺失数据必须明确标记，不会以 synthetic 数据替代 Production Data；synthetic fixture 只能用于测试。
