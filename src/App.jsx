@@ -35,7 +35,7 @@ export default function App() {
           <p className="hero-copy">
             最短ルートと、緑や給水スポットを考慮したルートを比較します。
           </p>
-          <p className="area-label"><span>対象エリア</span><strong>東京23区</strong></p>
+          <p className="area-label"><span>対象エリア</span><strong>東京都心5区</strong></p>
 
           <RouteControls routingState={routingState} />
           <ProductInfo />

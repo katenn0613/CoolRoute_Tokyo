@@ -51,12 +51,6 @@ export function RouteControls({ routingState }) {
           日陰データを利用できないため、緑・給水のみで計算しています
         </p>
       )}
-      {shadeCoverage?.coverageStatus === 'substantially-complete' && (
-        <p className="feature-note" role="status">
-          建物日陰データは東京23区の大部分（672メッシュ中664メッシュ、98.81%）を反映しています。
-          未処理8メッシュ付近では日陰を過小評価する可能性があります。
-        </p>
-      )}
 
       <fieldset className="route-cards" disabled={isCalculating}>
         <legend>比較するルート</legend>

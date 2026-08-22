@@ -5,6 +5,8 @@ import { calculateRouteBundle } from './calculateRouteBundle.js'
 import { buildExposureFeatureCollection } from './exposureLayer.js'
 import { loadRoadGraph } from './graphLoader.js'
 import { findNearestNode } from './nearestNode.js'
+import { PointOutsideDemoAreaError } from './nearestNode.js'
+import { isPointInServiceArea, loadServiceArea } from './serviceArea.js'
 import { useShadeLayer } from '../shade/useShadeLayer.js'
 import {
   PHASES,
@@ -16,8 +18,9 @@ import { toUserRoutingMessage } from './userMessages.js'
 
 class RoutingInteractionError extends Error {}
 
-export function useRouteBundle({ loadGraph = loadRoadGraph, loadShade } = {}) {
+export function useRouteBundle({ loadGraph = loadRoadGraph, loadShade, loadArea = null } = {}) {
   const graphRef = useRef(null)
+  const serviceAreaRef = useRef(null)
   const [selection, dispatch] = useReducer(selectionReducer, undefined, createInitialSelectionState)
   const [graphState, setGraphState] = useState({ status: 'loading', loadTimeMs: null, error: null })
   const [exposureGeoJSON, setExposureGeoJSON] = useState(null)
@@ -30,16 +33,22 @@ export function useRouteBundle({ loadGraph = loadRoadGraph, loadShade } = {}) {
   useEffect(() => {
     let active = true
     setGraphState({ status: 'loading', loadTimeMs: null, error: null })
-    loadGraph()
-      .then(({ graph, loadTimeMs }) => {
+    const areaLoader = loadArea ?? (loadGraph === loadRoadGraph ? loadServiceArea : null)
+    Promise.all([
+      loadGraph(),
+      areaLoader ? areaLoader() : Promise.resolve(null),
+    ])
+      .then(([{ graph, loadTimeMs }, serviceArea]) => {
         if (!active) return
         graphRef.current = graph
+        serviceAreaRef.current = serviceArea
         setExposureGeoJSON(buildExposureFeatureCollection(graph, routingConfig))
         setGraphState({ status: 'ready', loadTimeMs, error: null })
       })
       .catch((error) => {
         if (!active) return
         graphRef.current = null
+        serviceAreaRef.current = null
         setExposureGeoJSON(null)
         setGraphState({
           status: 'error',
@@ -50,11 +59,15 @@ export function useRouteBundle({ loadGraph = loadRoadGraph, loadShade } = {}) {
     return () => {
       active = false
       graphRef.current = null
+      serviceAreaRef.current = null
     }
   }, [loadGraph])
 
   const snapPoint = useCallback((point) => {
     if (!graphRef.current) throw new RoutingInteractionError('Road Graph is not ready.')
+    if (serviceAreaRef.current && !isPointInServiceArea(point, serviceAreaRef.current)) {
+      throw new PointOutsideDemoAreaError()
+    }
     const snapped = findNearestNode(graphRef.current, point, {
       boundingBox: demoArea.boundingBox,
       maximumDistanceMeters: routingConfig.maximumSnapDistanceMeters,

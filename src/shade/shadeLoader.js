@@ -68,7 +68,7 @@ export function validateShadePayload(payload, graph) {
 
 export async function loadShadeData({
   fetchImpl = globalThis.fetch,
-  url = assetPath('data/shade_tokyo23.json'),
+  url = assetPath('data/shade_tokyo_core5.json'),
 } = {}) {
   let response
   try {

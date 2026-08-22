@@ -127,7 +127,7 @@ export function MapView({
       })
       map.addSource('drinking-stations', {
         type: 'geojson',
-        data: assetPath('data/drinking_stations_tokyo23.geojson'),
+        data: assetPath('data/drinking_stations_tokyo_core5.geojson'),
       })
       map.addLayer({
         id: 'drinking-stations-points',
@@ -298,7 +298,7 @@ export function MapView({
       </div>
       <div className="map-area-caption">
         <span>対象エリア</span>
-        <strong>東京23区</strong>
+        <strong>東京都心5区</strong>
       </div>
     </section>
   )
