@@ -13,12 +13,13 @@ import networkx as nx
 import osmnx as ox
 from shapely.geometry import MultiPolygon, Point, Polygon, mapping
 from shapely.ops import unary_union
+from shapely.prepared import prep
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.demo_area import DemoArea
-from scripts.osm_graph import build_browser_graph, validate_browser_graph, write_browser_graph
+from scripts.osm_graph import build_browser_graph, write_browser_graph
 from scripts.tokyo_core5.config import load_core5_config
 
 
@@ -45,10 +46,11 @@ def validate_ward_coverage(
     ward_nodes: dict[str, tuple[object, ...]] = {}
     report: dict[str, object] = {}
     for ward_id, boundary in boundaries.items():
+        prepared_boundary = prep(boundary)
         nodes = tuple(
             node_id
             for node_id, attributes in graph.nodes(data=True)
-            if boundary.covers(Point(float(attributes["x"]), float(attributes["y"])))
+            if prepared_boundary.covers(Point(float(attributes["x"]), float(attributes["y"])))
         )
         if not nodes:
             raise ValueError(f"Core5 Ward {ward_id} 没有 Road Node 覆盖。")
@@ -154,15 +156,15 @@ def run(
         bounding_box=config.bounding_box,
     )
     payload = build_browser_graph(graph, area, datetime.now(UTC))
-    statistics = validate_browser_graph(payload, area)
     write_browser_graph(payload, output)
+    edge_lengths = tuple(float(edge["length"]) for edge in payload["edges"])
     _write_geojson(service_area_output, service_area, config, coverage)
     return {
         "source": source,
-        "nodeCount": statistics.node_count,
-        "edgeCount": statistics.edge_count,
-        "averageEdgeLength": statistics.average_edge_length,
-        "maximumEdgeLength": statistics.maximum_edge_length,
+        "nodeCount": len(payload["nodes"]),
+        "edgeCount": len(payload["edges"]),
+        "averageEdgeLength": sum(edge_lengths) / len(edge_lengths),
+        "maximumEdgeLength": max(edge_lengths),
         "wardCoverage": coverage,
         "output": str(output),
         "outputSizeBytes": output.stat().st_size,
