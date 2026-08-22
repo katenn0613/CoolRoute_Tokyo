@@ -5,29 +5,14 @@
     "12:00",
     "15:00"
   ],
-  "edgeCount": 327240,
+  "edgeCount": 1206772,
   "quality": {
-    "sourceMeshCount": 672,
-    "processedSourceMeshCount": 664,
-    "missingSourceMeshCount": 8,
-    "missingSourceMeshIds": [
-      "53393624",
-      "53394615",
-      "53394616",
-      "53394640",
-      "53394641",
-      "53394642",
-      "53394643",
-      "53394644"
-    ],
-    "coverageRatio": 0.9880952380952381,
-    "coverageStatus": "substantially-complete",
-    "validBuildingCount": 1742604,
+    "sourceMeshCount": 671,
+    "validBuildingCount": 1768239,
     "invalidBuildingCount": 0,
     "lod2BuildingCount": 31727,
-    "lod1FallbackCount": 1710877,
-    "rawRetentionPolicy": "delete-after-validated-target-mesh",
-    "limitation": "8 source meshes are not included; Building Shade may be underestimated near those meshes."
+    "lod1FallbackCount": 1736512,
+    "rawRetentionPolicy": "delete-after-validated-target-mesh"
   },
-  "generatedAt": "2026-08-21T21:39:53.201680Z"
+  "generatedAt": "2026-08-22T12:22:17.180706Z"
 }
