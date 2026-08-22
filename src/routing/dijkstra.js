@@ -5,7 +5,7 @@ export class RouteCalculationError extends Error {
   }
 }
 
-class MinHeap {
+export class MinHeap {
   constructor() {
     this.items = []
   }
