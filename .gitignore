@@ -19,6 +19,7 @@ cache/
 *.tmp
 *.swp
 *~
+.worktrees/
 
 # 原始数据和中间结果由本地离线流程管理。
 data/raw/**
