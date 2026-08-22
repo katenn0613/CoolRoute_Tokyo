@@ -81,7 +81,6 @@ export async function buildRouteTiles({
   maxZoom = MAX_ZOOM,
   boundingBox = BOUNDING_BOX,
   outputDirectory = fileURLToPath(TILES_DIR_URL),
-  skipShade = false,
 } = {}) {
   const heatIndex = geojsonvt(
     { type: 'FeatureCollection', features: buildHeatFeatures(graphPayload) },
@@ -93,24 +92,21 @@ export async function buildRouteTiles({
       buffer: BUFFER,
     },
   )
+  const shadeIndex = geojsonvt(
+    { type: 'FeatureCollection', features: buildShadeFeatures(graphPayload, shadePayload) },
+    {
+      maxZoom,
+      indexMaxZoom: maxZoom,
+      tolerance: TOLERANCE,
+      extent: EXTENT,
+      buffer: BUFFER,
+    },
+  )
+
   const layers = [
     { name: 'heat', index: heatIndex },
+    { name: 'shade', index: shadeIndex },
   ]
-  if (!skipShade && shadePayload) {
-    layers.push({
-      name: 'shade',
-      index: geojsonvt(
-        { type: 'FeatureCollection', features: buildShadeFeatures(graphPayload, shadePayload) },
-        {
-          maxZoom,
-          indexMaxZoom: maxZoom,
-          tolerance: TOLERANCE,
-          extent: EXTENT,
-          buffer: BUFFER,
-        },
-      ),
-    })
-  }
 
   let tileCount = 0
   let totalBytes = 0
@@ -156,12 +152,11 @@ export async function buildRouteTiles({
 }
 
 async function main() {
-  const skipShade = process.env.CR_SKIP_SHADE === '1'
   const [graphPayload, shadePayload] = await Promise.all([
     readFile(GRAPH_URL, 'utf8').then(JSON.parse),
-    skipShade ? Promise.resolve(null) : readFile(SHADE_URL, 'utf8').then(JSON.parse),
+    readFile(SHADE_URL, 'utf8').then(JSON.parse),
   ])
-  const result = await buildRouteTiles({ graphPayload, shadePayload, skipShade })
+  const result = await buildRouteTiles({ graphPayload, shadePayload })
   console.log(JSON.stringify({ ...result, outputDirectory: fileURLToPath(TILES_DIR_URL) }, null, 2))
 }
 
