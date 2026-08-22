@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { gzipSync } from 'node:zlib'
 
 import {
   normalizeBasePath,
@@ -72,6 +73,34 @@ function validServiceArea() {
   }
 }
 
+function validBinaryGraph() {
+  const buffer = Buffer.alloc(96)
+  buffer.writeUInt32LE(0x52434752, 0)
+  buffer.writeUInt32LE(1, 4)
+  buffer.writeUInt32LE(2, 8)
+  buffer.writeUInt32LE(1, 12)
+  buffer.writeUInt32LE(2, 16)
+  buffer.writeUInt32LE(3, 20)
+  return buffer
+}
+
+function validTokyoRuntimeMetadata() {
+  return {
+    schemaVersion: '1.0.0',
+    datasetId: 'tokyo23-route-a',
+    binaryGraph: {
+      version: 1,
+      nodeCount: 2,
+      edgeCount: 1,
+      pointCount: 2,
+      scenarioCount: 3,
+      weakComponentCount: 1,
+      boundingBox: [139.5, 35.5, 140, 35.9],
+    },
+    limitations: { crossComponentRouting: false },
+  }
+}
+
 async function createArtifact({
   basePath = '/demo-repo/',
   graph = validGraph(),
@@ -82,6 +111,7 @@ async function createArtifact({
   htmlAssetBasePath = basePath,
   includeWorker = true,
   referenceWorker = true,
+  includeTokyoRuntime = true,
   indexMarkup,
 } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'coolroute-pages-'))
@@ -126,6 +156,35 @@ async function createArtifact({
       JSON.stringify(serviceArea),
     )
   }
+  if (includeTokyoRuntime) {
+    const binary = validBinaryGraph()
+    await writeFile(path.join(directory, 'data/graph_tokyo23.bin'), binary)
+    await writeFile(path.join(directory, 'data/graph_tokyo23.bin.gz'), gzipSync(binary))
+    await writeFile(
+      path.join(directory, 'data/graph_tokyo23_runtime_metadata.json'),
+      JSON.stringify(validTokyoRuntimeMetadata()),
+    )
+    await writeFile(
+      path.join(directory, 'data/shade_metadata_tokyo23.json'),
+      JSON.stringify({ schemaVersion: '1.0.0', scenarios: ['09:00', '12:00', '15:00'], edgeCount: 1 }),
+    )
+    await writeFile(
+      path.join(directory, 'data/drinking_stations_tokyo23.geojson'),
+      JSON.stringify(validStations()),
+    )
+    await mkdir(path.join(directory, 'data/tiles/heat/10/908'), { recursive: true })
+    await mkdir(path.join(directory, 'data/tiles/shade/10/908'), { recursive: true })
+    await writeFile(
+      path.join(directory, 'data/tiles/heat.json'),
+      JSON.stringify({ tilejson: '3.0.0', minzoom: 10, maxzoom: 13, tiles: ['data/tiles/heat/{z}/{x}/{y}.pbf'] }),
+    )
+    await writeFile(
+      path.join(directory, 'data/tiles/shade.json'),
+      JSON.stringify({ tilejson: '3.0.0', minzoom: 10, maxzoom: 13, tiles: ['data/tiles/shade/{z}/{x}/{y}.pbf'] }),
+    )
+    await writeFile(path.join(directory, 'data/tiles/heat/10/908/402.pbf'), 'heat')
+    await writeFile(path.join(directory, 'data/tiles/shade/10/908/402.pbf'), 'shade')
+  }
 
   return directory
 }
@@ -161,12 +220,28 @@ describe('validatePagesBuild', () => {
       graph: { nodeCount: 2, edgeCount: 1, graphVersion: '1.1.0' },
       drinkingStationCount: 1,
       shadeEdgeCount: 1,
+      tokyo23: {
+        nodeCount: 2,
+        edgeCount: 1,
+        scenarioCount: 3,
+        weakComponentCount: 1,
+      },
       http: {
         verified: true,
         rootPathStatus: 404,
         rootDataPathStatus: 404,
       },
     })
+  })
+
+  it('requires the Tokyo23 Binary runtime, MVT manifests and Core5 fallback together', async () => {
+    const distDirectory = await createArtifact({ includeTokyoRuntime: false })
+
+    await expect(validatePagesBuild({
+      distDirectory,
+      basePath: '/demo-repo/',
+      verifyHttp: false,
+    })).rejects.toThrow(/graph_tokyo23\.bin/)
   })
 
   it('rejects root-relative assets that bypass a repository Base Path', async () => {

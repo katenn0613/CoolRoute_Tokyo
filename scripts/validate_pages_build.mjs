@@ -13,6 +13,13 @@ const REQUIRED_DATA_FILES = [
   'data/drinking_stations_tokyo_core5.geojson',
   'data/service_area_tokyo_core5.geojson',
   'data/shade_tokyo_core5.json',
+  'data/graph_tokyo23.bin',
+  'data/graph_tokyo23.bin.gz',
+  'data/graph_tokyo23_runtime_metadata.json',
+  'data/shade_metadata_tokyo23.json',
+  'data/drinking_stations_tokyo23.geojson',
+  'data/tiles/heat.json',
+  'data/tiles/shade.json',
 ]
 
 export function normalizeBasePath(value) {
@@ -162,7 +169,8 @@ async function verifyArtifactHttp(distDirectory, basePath) {
     for (const relativePath of REQUIRED_DATA_FILES) {
       const response = await fetch(`${server.origin}${basePath}${relativePath}`)
       if (!response.ok) throw new Error(`${relativePath} failed the Subpath HTTP check.`)
-      await response.json()
+      if (/\.(?:json|geojson)$/.test(relativePath)) await response.json()
+      else await response.arrayBuffer()
     }
     const rootResponse = await fetch(`${server.origin}/`)
     const rootDataResponse = await fetch(`${server.origin}/data/graph_tokyo_core5.json`)
@@ -177,6 +185,82 @@ async function verifyArtifactHttp(distDirectory, basePath) {
   } finally {
     await server.close()
   }
+}
+
+async function validateTokyo23Binary(distDirectory) {
+  const binaryPath = path.join(distDirectory, 'data/graph_tokyo23.bin')
+  let binary
+  try {
+    binary = await readFile(binaryPath)
+  } catch (error) {
+    throw new Error('graph_tokyo23.bin is missing.', { cause: error })
+  }
+  if (binary.byteLength < 24 || binary.readUInt32LE(0) !== 0x52434752) {
+    throw new Error('graph_tokyo23.bin has an invalid Binary Graph header.')
+  }
+  const header = {
+    version: binary.readUInt32LE(4),
+    nodeCount: binary.readUInt32LE(8),
+    edgeCount: binary.readUInt32LE(12),
+    pointCount: binary.readUInt32LE(16),
+    scenarioCount: binary.readUInt32LE(20),
+  }
+  const expectedSize = 24
+    + header.nodeCount * 8
+    + header.edgeCount * 20
+    + (header.edgeCount + 1) * 4
+    + header.pointCount * 8
+    + header.edgeCount * header.scenarioCount * 4
+  if (
+    header.version !== 1
+    || header.nodeCount <= 0
+    || header.edgeCount <= 0
+    || header.pointCount <= 0
+    || header.scenarioCount !== 3
+    || expectedSize !== binary.byteLength
+  ) throw new Error('graph_tokyo23.bin header counts or file size are invalid.')
+
+  const compressedPath = path.join(distDirectory, 'data/graph_tokyo23.bin.gz')
+  const compressed = await readFile(compressedPath).catch((error) => {
+    throw new Error('graph_tokyo23.bin.gz is missing.', { cause: error })
+  })
+  if (compressed.byteLength < 2 || compressed[0] !== 0x1f || compressed[1] !== 0x8b) {
+    throw new Error('graph_tokyo23.bin.gz is not a gzip payload.')
+  }
+
+  const metadata = await readJson(
+    path.join(distDirectory, 'data/graph_tokyo23_runtime_metadata.json'),
+    'graph_tokyo23_runtime_metadata.json',
+  )
+  for (const field of ['version', 'nodeCount', 'edgeCount', 'pointCount', 'scenarioCount']) {
+    if (metadata?.binaryGraph?.[field] !== header[field]) {
+      throw new Error(`Tokyo23 Runtime Metadata ${field} does not match Binary Graph.`)
+    }
+  }
+  if (!Number.isInteger(metadata?.binaryGraph?.weakComponentCount) || metadata.binaryGraph.weakComponentCount <= 0) {
+    throw new Error('Tokyo23 Runtime Metadata weakComponentCount is invalid.')
+  }
+  return { ...header, weakComponentCount: metadata.binaryGraph.weakComponentCount }
+}
+
+async function validateTileSet(distDirectory, name) {
+  const manifest = await readJson(
+    path.join(distDirectory, `data/tiles/${name}.json`),
+    `${name}.json`,
+  )
+  if (
+    manifest?.tilejson !== '3.0.0'
+    || !Number.isInteger(manifest.minzoom)
+    || !Number.isInteger(manifest.maxzoom)
+    || !Array.isArray(manifest.tiles)
+    || !manifest.tiles.some((template) => template.includes(`data/tiles/${name}/`))
+  ) throw new Error(`${name} MVT manifest is invalid.`)
+  const tileDirectory = path.join(distDirectory, `data/tiles/${name}`)
+  const tiles = await listFiles(tileDirectory).catch((error) => {
+    throw new Error(`${name} MVT directory is missing.`, { cause: error })
+  })
+  if (!tiles.some((file) => file.endsWith('.pbf'))) throw new Error(`${name} MVT tiles are missing.`)
+  return tiles.filter((file) => file.endsWith('.pbf')).length
 }
 
 export async function validatePagesBuild({ distDirectory, basePath, verifyHttp = true }) {
@@ -239,6 +323,23 @@ export async function validatePagesBuild({ distDirectory, basePath, verifyHttp =
     'shade_tokyo_core5.json',
   )
   validateShadePayload(shade, prepareGraph(graphPayload))
+  const tokyo23 = await validateTokyo23Binary(resolvedDist)
+  const tokyo23Stations = await readJson(
+    path.join(resolvedDist, 'data/drinking_stations_tokyo23.geojson'),
+    'drinking_stations_tokyo23.geojson',
+  )
+  validateStations(tokyo23Stations)
+  const shadeMetadata = await readJson(
+    path.join(resolvedDist, 'data/shade_metadata_tokyo23.json'),
+    'shade_metadata_tokyo23.json',
+  )
+  if (
+    shadeMetadata?.schemaVersion !== '1.0.0'
+    || shadeMetadata?.edgeCount !== tokyo23.edgeCount
+    || shadeMetadata?.scenarios?.join(',') !== '09:00,12:00,15:00'
+  ) throw new Error('shade_metadata_tokyo23.json does not match the Binary Graph.')
+  tokyo23.heatTileCount = await validateTileSet(resolvedDist, 'heat')
+  tokyo23.shadeTileCount = await validateTileSet(resolvedDist, 'shade')
   const http = verifyHttp
     ? await verifyArtifactHttp(resolvedDist, normalizedBasePath)
     : { verified: false }
@@ -255,6 +356,7 @@ export async function validatePagesBuild({ distDirectory, basePath, verifyHttp =
     drinkingStationCount,
     wardIds,
     shadeEdgeCount: Object.keys(shade.edgeShadeScores).length,
+    tokyo23,
     http,
   }
 }

@@ -1,0 +1,17 @@
+{
+  "tilejson": "3.0.0",
+  "name": "heat",
+  "scheme": "xyz",
+  "tiles": [
+    "data/tiles/heat/{z}/{x}/{y}.pbf"
+  ],
+  "minzoom": 10,
+  "maxzoom": 13,
+  "bounds": [
+    139.559,
+    35.528,
+    139.918,
+    35.818
+  ],
+  "generatedFrom": "graph_tokyo23.json + shade_tokyo23.json"
+}

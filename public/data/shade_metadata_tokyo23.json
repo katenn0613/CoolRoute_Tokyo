@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0.0",
+  "scenarios": [
+    "09:00",
+    "12:00",
+    "15:00"
+  ],
+  "edgeCount": 1206772,
+  "quality": {
+    "sourceMeshCount": 671,
+    "validBuildingCount": 1768239,
+    "invalidBuildingCount": 0,
+    "lod2BuildingCount": 31727,
+    "lod1FallbackCount": 1736512,
+    "rawRetentionPolicy": "delete-after-validated-target-mesh"
+  },
+  "generatedAt": "2026-08-22T12:22:17.180706Z"
+}
