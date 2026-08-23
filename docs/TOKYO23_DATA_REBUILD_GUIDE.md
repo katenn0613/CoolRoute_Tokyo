@@ -278,6 +278,37 @@ python scripts/tokyo23/validate_tokyo23.py
 | 8 | `npm run build:route-a` 后瓦片覆盖 | 缺台東/足立/葛飾等 | 各问题区 z10–z13 瓦片有要素 |
 | 9 | `validate_tokyo23.py` | — | 通过，报告落盘 |
 
+## 7.5 跨界连通性修复（2026-08-23 新增）
+
+> **问题**：按区（ward）下载并用 osmnx `graph_from_polygon` 合并后，**所有跨区界的边都被删除**。
+> osmnx 2.1.1 的 `truncate_graph_polygon` 只删除区多边形外的节点，跨区界的边（桥的过河段等）
+> 在相邻两区的图中都会被整条删除，且不保留边界残端；按节点 id 合并后这些真实连接永久丢失。
+> 实测：荒川带（lat 35.70–35.80）图内跨河边 **0 条**（OSM 源里该带实有 340 条 bridge way）；
+> 23 区路网碎片化成 ~20 个弱连通分量；跨块路由被迫绕全城（如 北区→足立 直线 4.5km、路线 69.9km）。
+
+> **修复**（管线脚本 `D:\Code\coolroute-data-pipeline\scripts\tokyo23\`，产物在本地预览验证）：
+>
+> 1. **`repair_boundary_gaps.py`**：按 OSM way id 聚合各 ward 图里的边 → 找出被边界切断的同一
+>    way 的碎片对 → 恢复碎片间最近节点对（即被删段的两个端点）。`--include-same-component`
+>    默认开启（同分量内的真实跨界段也恢复，否则"已通过其它桥可达"的桥会被漏掉导致绕远）。
+> 2. **`restore_bridges.py`**：碎片法恢复不了"只出现在单侧区图"的河桥（实测桥 way 往往只在
+>    西岸区图里，东岸区图完全没有，如吾妻橋 way 只存在于台東图、墨田图 0 命中）。改用 Overpass
+>    查询 `bridge=yes + 可步行 highway` 的桥 way，取两端坐标 → 在图里找两端最近节点并连接。
+>    注意：大 bbox 一次查询会被 Overpass 拒连（SSL EOF），需按 3×3 分块查询、块间暂停 10s。
+> 3. **`apply_repair_to_graph.py`**：幂等应用（先移除旧 `boundary-gap-` 边再添加）；新边的
+>    green/water/shade 用两端点入射边均值回退；同步更新 graph 与 shade JSON 的 edgeCount。
+>    ⚠️ 注意：过滤列表/字典后必须重新绑定回 payload（`graph_payload["edges"] = edges`），
+>    否则写盘的是旧列表（metadata 与内容数量不一致，实测踩坑）。
+> 4. 重建二进制：`app/` 下 `node scripts/build_binary_graph.mjs` → 复制
+>    `graph_tokyo23.bin(.gz)` 回主仓库 `public/data/`（tiles 不重跑，背景图层不受影响）。
+
+> **当前状态（2026-08-23 15:30，已完成）**：23 区全量重连完成——碎片修复 937 组候选 + Overpass
+> 桥恢复 2,224 组候选 → 应用 6,026 条派生边（135 组节点缺失跳过），edgeCount 1,212,798。
+> 结果：弱连通分量由 ~20 个降至 **6 个**（主分量 409,266 节点 / 99.95%，剩 5 个 26–65 节点的
+> 真实孤岛碎片，如江東若洲/夢の島、大田羽田南等，OSM 中本无步行桥）；跨区路线全部 1.1–1.4x
+> （修复前最坏 69.9km / 15.5x）。产物已同步主仓库 `public/data/graph_tokyo23.bin(.gz)`（本地，
+> 未推远端）。
+
 ## 8. 常见问题与风险
 
 | 风险 | 说明 | 应对 |
